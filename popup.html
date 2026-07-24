@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DouRate</title>
+    <style>
+      body { width: 292px; margin: 0; padding: 16px; color: #222; font: 14px/1.45 system-ui, sans-serif; }
+      h1 { margin: 0 0 8px; font-size: 16px; }
+      p { margin: 0 0 10px; }
+      .note { color: #5f6368; font-size: 12px; }
+      fieldset { margin: 14px 0 10px; padding: 10px; border: 1px solid #d7d7d7; border-radius: 8px; }
+      legend { padding: 0 4px; font-weight: 600; }
+      label { display: block; margin: 9px 0; cursor: pointer; }
+      input { vertical-align: top; margin: 3px 6px 0 0; }
+      .option-title { display: block; font-weight: 600; }
+      .option-copy { display: block; margin-left: 22px; color: #5f6368; font-size: 12px; }
+      .warning { color: #a33a00; }
+      #status { min-height: 18px; color: #16704b; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>DouRate</h1>
+    <p>在 Netflix、Prime Video 或 Disney+ 的标题详情页和首页查看可用的豆瓣评分。</p>
+    <fieldset>
+      <legend>加载模式</legend>
+      <label>
+        <input type="radio" name="loading-mode" value="details" />
+        <span class="option-title">仅详情页加载</span>
+        <span class="option-copy">默认且最保守：只在打开单个流媒体标题时查询评分。</span>
+      </label>
+      <label>
+        <input type="radio" name="loading-mode" value="browse-visible" />
+        <span class="option-title">首页局部加载</span>
+        <span class="option-copy">只查询当前可见区域；滚动后再查询新出现的标题卡片。</span>
+      </label>
+      <label>
+        <input type="radio" name="loading-mode" value="browse-full" />
+        <span class="option-title">首页全自动加载</span>
+        <span class="option-copy warning">会查询整页已渲染卡片，屏幕外卡片以较慢固定节奏加载，仍可能触发平台保护机制。</span>
+      </label>
+    </fieldset>
+    <p id="status" role="status" aria-live="polite"></p>
+    <p class="note">设置保存后，请刷新当前流媒体页面才会生效。节流不能保证避免验证，也不会替代豆瓣授权。</p>
+    <script src="popup.js"></script>
+  </body>
+</html>

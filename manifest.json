@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "DouRate",
+  "version": "0.2.2",
+  "description": "Local demonstration: shows Douban ratings on Netflix, Prime Video, and Disney+ title pages and browse cards.",
+  "icons": {
+    "16": "assets/icons/dourate-16.png",
+    "32": "assets/icons/dourate-32.png",
+    "48": "assets/icons/dourate-48.png",
+    "128": "assets/icons/dourate-128.png"
+  },
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.netflix.com/*",
+    "https://www.primevideo.com/*",
+    "https://www.disneyplus.com/*",
+    "https://movie.douban.com/*",
+    "https://search.douban.com/*",
+    "https://www.wikidata.org/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "DouRate",
+    "default_icon": {
+      "16": "assets/icons/dourate-16.png",
+      "32": "assets/icons/dourate-32.png",
+      "48": "assets/icons/dourate-48.png",
+      "128": "assets/icons/dourate-128.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://www.disneyplus.com/*"
+      ],
+      "js": ["shared.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/douban-mark.svg"],
+      "matches": [
+        "https://www.netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://www.disneyplus.com/*"
+      ]
+    }
+  ]
+}

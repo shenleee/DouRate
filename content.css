@@ -1,0 +1,66 @@
+#dourate-rating-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin: 10px 0 2px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.42);
+  color: #f5f5f1;
+  font-family: Netflix Sans, Amazon Ember, Disney+, Helvetica Neue, Segoe UI, Roboto, Ubuntu, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+#dourate-rating-chip .dourate-rating-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+#dourate-rating-chip:hover,
+#dourate-rating-chip:focus-visible {
+  border-color: #16a05d;
+  color: #fff;
+  outline: none;
+}
+
+.dourate-card-badge {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-family: Netflix Sans, Amazon Ember, Disney+, Helvetica Neue, Segoe UI, Roboto, Ubuntu, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.dourate-card-badge:hover,
+.dourate-card-badge:focus-visible {
+  border-color: #16a05d;
+  outline: none;
+}
+
+.dourate-card-icon {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+}
+
+.dourate-card-host {
+  position: relative !important;
+}
