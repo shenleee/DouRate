@@ -1,68 +1,66 @@
-# DouRate
+# DouRate — local demonstration
 
-在 Netflix、Prime Video 和 Disney+ 浏览内容时，直接显示可匹配的豆瓣评分（/10）。
+Version 0.2.3 · Manifest V3 · local installation only
 
-## 安装包
+DouRate displays an available Douban score such as 9.4/10 from Douban on title pages and as a compact badge on browse cards for Netflix, Prime Video, and Disney+. Clicking a score opens the matched Douban page.
 
-当前版本：**v0.2.2**
+## Local installation
 
-[下载 dourate-demo-0.2.2.zip](https://github.com/shenleee/DouRate/releases/latest/download/dourate-demo-0.2.2.zip)
+Chrome installs a development extension from an unpacked folder, not by double-clicking the ZIP file.
 
-## 用途与免责声明
+1. Extract dourate-demo-0.2.3.zip, if using the packaged artifact.
+2. Open chrome://extensions.
+3. Enable Developer mode.
+4. Click Load unpacked and select the extracted netflix-douban-rating folder.
+5. Open or reload a Netflix, Prime Video, or Disney+ title or browse page.
 
-DouRate 仅供个人日常学习和交流使用，没有任何商业用途。请勿滥用，包括但不限于用于批量数据采集或其他不合理用途。用户应自行对使用行为及其后果负责；对于不合理使用造成的任何后果，开发者不承担责任。使用 DouRate 不代表已获得豆瓣的任何许可或授权。
+When updating the source folder, select Update on the extensions page, then reload the current streaming tab.
 
-## 安装
+## Behaviour and data flow
 
-1. 下载并解压 ZIP 文件到任意本地文件夹。Chrome 不能直接安装 ZIP，必须选择解压后的文件夹。
-2. 在 Chrome 地址栏打开 chrome://extensions。
-3. 打开右上角的「开发者模式」。
-4. 点击「加载已解压的扩展程序（Load unpacked）」。
-5. 选择刚才解压后的 DouRate 文件夹；该文件夹内必须直接包含 manifest.json。
-6. 确认扩展已启用，名称为「DouRate」，版本为 0.2.2。
-7. 打开或刷新 Netflix、Prime Video 或 Disney+：
-   - 标题详情页会在标题区域显示可匹配的豆瓣评分；
-   - Browse 页的加载行为由 DouRate 弹窗中选择的加载模式决定。
+- Runs only on Netflix, Prime Video, and Disney+ website pages.
+- Reads the visible platform title, and when available its release year and media type, to resolve a rating.
+- Makes direct requests from the user's browser to Douban; Wikidata is used only as a cross-language title disambiguation fallback.
+- The browser may attach an existing normal Douban session to those requests. The extension does not request, read, persist, or expose usernames, passwords, or cookie values.
+- Stores matched title/rating results in chrome.storage.local for up to 15 days. This device-local cache reduces repeat requests and is never synced or sent to a developer-operated service.
+- If a Douban verification page, HTTP 403, or HTTP 429 is detected, pauses new direct-Douban lookups globally for about 30 minutes. Cached ratings remain available without a new request.
+- It does not alter platform playback or DRM, and does not send title metadata or browsing history to a developer-operated service.
+- Scores are shown only for sufficiently confident matches. Ambiguous or unavailable results show a question-mark search link rather than a guessed score. When a browse card exposes a year or media type, that metadata is included in matching.
 
-## 加载模式
+## Loading modes
 
-- **仅详情页加载**（默认）：只在打开单个流媒体标题详情页时查询评分。
-- **首页局部加载**：只查询当前可视区域附近的卡片；继续滚动后再查询新出现的卡片。
-- **首页全自动加载**：按展示顺序查询平台已渲染的全部卡片；屏幕外卡片开始查询前至少等待八秒。该模式仍属自动访问，可能触发平台保护机制。
+- Details only (default) fetches only when an individual streaming title is open.
+- Browse: visible area fetches only cards near the viewport; new cards are fetched after scrolling.
+- Browse: full page fetches all currently rendered cards in display order. Cards below the fold wait at least eight seconds before their lookup begins.
 
-点击浏览器工具栏中的 DouRate 图标选择模式；保存后刷新当前流媒体页面才会生效。
+Select a mode from the DouRate toolbar popup, then refresh the current streaming page for it to take effect. The full-page option remains automated use and can still trigger Douban's security checks; its slower pace is not a guarantee against verification or account action.
 
-## 加载速度与缓存
+The toolbar popup also reports recent lookup success/failure and an active verification pause. Its Douban link opens only when the user selects it; opening the popup does not initiate an additional test request.
 
-- 单个标题详情页的可用评分通常会较快出现。
-- 「首页全自动加载」会按展示顺序逐一查询平台已渲染的卡片，评分会逐步显示。
-- 成功取得的评分会在本地浏览器缓存 15 天；失败、未匹配与验证页结果不会缓存。
+A small number of titles can still be unavailable because Douban has no available result, the platform and Douban titles use different translations, or a sufficiently reliable match cannot be made. In those cases, DouRate shows a question-mark search link instead of a guessed score.
 
-## 豆瓣登录与风险提示
+## Loading expectations
 
-- DouRate 不会要求输入账号密码，也不会读取、保存或公开 Cookie 值；浏览器只会在请求时使用已有的正常登录会话。
-- 节流不能保证不会触发豆瓣验证或账号措施；如出现验证，请停止自动查询，而不是反复重试。
+- On an individual streaming title page, an available rating usually appears quickly.
+- In full-page mode, cards the platform has already rendered are looked up one at a time in display order, including cards below the fold. Scores fill in progressively, so please allow time for the page-wide list to complete.
 
-## 更新
+## Package contents
 
-更新代码后，回到 chrome://extensions，点击 DouRate 卡片上的「更新（Update）」，再刷新当前流媒体页面。
+- manifest.json — Manifest V3 definition and the exact sites the extension can access.
+- content.js / content.css — Netflix, Prime Video, and Disney+ page and browse-card overlay.
+- service-worker.js — local matching, caching, and direct lookup logic.
+- shared.js — title normalisation and confidence scoring.
+- assets/douban-mark.svg — the in-overlay mark.
+- tests/ — dependency-free checks for matching and score extraction.
 
-## 常见问题
+## Verification
 
-- **无法取得评分**：详情页会显示「?/10 from Douban」，Browse 卡片会显示「?」；点击该标识即可在豆瓣搜索这个标题。
-- **少数条目无法加载**：可能由于豆瓣没有可用结果、不同译名，或无法做出足够可靠的匹配；此时会显示问号搜索链接，不会猜测或显示错误评分。
-- **Browse 页面加载较慢**：本地演示版会按展示顺序逐步查询已渲染卡片，以降低请求频率；无法可靠匹配的条目会显示问号搜索链接。
-- **图标或名称未更新**：点击「更新（Update）」后，关闭并重新打开扩展菜单。
+Run these commands from this folder:
 
-## 说明
+    node --test tests/shared.test.mjs
+    node --check content.js
+    node --check service-worker.js
 
-此版本为本地演示包，只在 Netflix、Prime Video 和 Disney+ 页面运行。它直接从用户浏览器请求豆瓣评分信息；不会修改平台播放或 DRM，也不会读取或保存用户名、密码或 Cookie 值。
+## Scope note
 
-## 更新日志
-
-### v0.2.2 · 2026-07-24
-
-- 成功取得的评分会在本地浏览器缓存 15 天；失败、未匹配与验证页结果不缓存。
-- Netflix 分类、New & Popular（/latest）和 My List 页面支持浏览卡片评分。
-- 问号评分的悬浮提示会区分未可靠匹配、豆瓣验证、无可用评分与临时请求失败。
-- 「首页全自动加载」的风险提示改为「可能触发平台保护机制」。
+This package is a private, locally installed demonstration for evaluating the product and discussing possible authorisation. It is not represented as a public Chrome Web Store release or as an official Netflix, Prime Video, Disney+, or Douban product.

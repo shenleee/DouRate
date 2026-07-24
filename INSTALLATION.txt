@@ -1,0 +1,83 @@
+DouRate Guide
+============
+
+Package: dourate-demo-0.2.3.zip
+
+中文说明：本文件与 ZIP 内的“DouRate-本地安装说明.txt”内容一致；使用 ASCII 文件名是为了避免部分解压工具显示中文文件名异常。
+
+Purpose and disclaimer
+----------------------
+
+DouRate is provided solely for personal day-to-day learning and discussion. It has no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban.
+
+1. Extract the ZIP file to any local folder.
+   Chrome cannot install the ZIP by double-clicking it. Select the extracted folder instead.
+
+2. Open chrome://extensions in Chrome.
+
+3. Turn on Developer mode.
+
+4. Click Load unpacked and select the extracted DouRate folder. The selected folder must directly contain manifest.json.
+
+5. Confirm that the enabled extension is named DouRate, version 0.2.3.
+
+6. Open or refresh Netflix, Prime Video, or Disney+:
+   - A title page displays a matched Douban score near the title.
+   - Browse-card behavior follows the loading mode selected from the DouRate popup.
+
+Loading modes
+-------------
+
+- **Details only** (default): looks up scores only on an individual streaming title page.
+- **Browse: visible area**: looks up only cards near the current viewport; more cards load after scrolling.
+- **Browse: full page**: looks up every card the platform has rendered, in display order. Cards below the viewport wait at least eight seconds before their lookup begins. This remains an automated use pattern and can still trigger Douban's security checks.
+
+Choose a mode from the DouRate toolbar popup, then refresh the current streaming page for the change to apply.
+
+Loading expectations
+--------------------
+
+- An available score on an individual title page normally appears quickly.
+- In full-page mode, cards are looked up one at a time in display order (top-to-bottom, then left-to-right), including cards below the fold. Scores fill in progressively, so allow time for the page-wide list to complete.
+
+Douban session recommendation
+-----------------------------
+
+- DouRate never asks for a password and does not read, store, or expose cookie values. The browser may use its existing normal Douban session for requests.
+- Rate limiting does not guarantee that Douban will not show verification or take account action. If verification appears, stop automatic browsing lookups rather than retrying them.
+
+Verification protection and status
+----------------------------------
+
+- If DouRate detects a Douban verification page, HTTP 403, or HTTP 429, it pauses new direct-Douban lookups for about 30 minutes. Previously cached ratings can still display without a new request.
+- The DouRate toolbar popup shows the most recent success/failure and any active pause. It also provides a user-initiated link to open Douban in the same browser; opening the popup does not make an extra test lookup.
+
+Updating
+--------
+
+After changing source code, open chrome://extensions, click Update on the DouRate card, then refresh the current streaming page.
+
+Troubleshooting
+---------------
+
+- If a score cannot be fetched, DouRate shows `?/10 from Douban` on a title page and `?` on a browse card. Click it to search that title on Douban yourself.
+- The question-mark tooltip states the available reason, such as an unreliable match, a verification pause, no score on the matched page, a changed search format, or a temporary request failure.
+- Browse-card scores appear progressively in display order to limit request frequency. Titles that cannot be matched are shown with a question-mark search link instead of a score.
+- A small number of titles can still fail to load because Douban has no available result, a title is translated differently, or a sufficiently reliable match cannot be made. In these cases, the question-mark link is shown instead of a score.
+
+Changelog
+---------
+
+### v0.2.3 · 2026-07-24
+
+- Detecting a Douban verification page, HTTP 403, or HTTP 429 pauses new direct-Douban lookups globally for about 30 minutes; cached ratings remain usable.
+- A changed Douban search-page format is now distinguished from a genuinely unreliable title match.
+- The toolbar popup now shows recent lookup status and a user-initiated Douban link without making an extra request.
+- Browse-card lookups include a visible year or media type when the platform DOM provides one, improving same-title matching.
+
+### v0.2.2 · 2026-07-24
+
+- Successfully fetched scores are cached in the local browser for 15 days; failed, unmatched, and verification results are not cached.
+- Netflix genre, New & Popular (/latest), and My List pages support browse-card ratings.
+- The question-mark tooltip distinguishes an unreliable match, a Douban verification request, no available score, and a temporary request failure.
+- The full-page loading warning now refers to possible platform protection mechanisms.

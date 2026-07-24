@@ -206,6 +206,14 @@
         return "No confident Douban match" + manualSearch;
       case "douban_challenge":
         return "Douban asked for verification" + manualSearch;
+      case "douban_cooldown": {
+        const minutes = Math.max(1, Math.ceil((Number(result.retryAt) - Date.now()) / 60000));
+        return "Douban lookups are paused after verification" +
+          (Number.isFinite(minutes) ? " (about " + minutes + " min remaining)" : "") +
+          manualSearch;
+      }
+      case "provider_format_changed":
+        return "Douban returned an unexpected search format" + manualSearch;
       case "missing_score":
         return "The matched Douban page has no available score" + manualSearch;
       case "network_error":
@@ -283,13 +291,13 @@
       : failureTooltip(result, title);
     badge.setAttribute(
       "aria-label",
-      matched ? score + " out of 10 from Douban" : "Search " + title + " on Douban"
+      matched ? score + " out of 10 from Douban" : failureTooltip(result, title)
     );
     badge.dataset.dourateCardIdentity = cardIdentity || "";
   }
 
-  function lookupKey(title) {
-    return NetflixDouban.normalizedTitle(title);
+  function lookupKey(title, year = "", mediaType = "") {
+    return [NetflixDouban.normalizedTitle(title), year, mediaType].join(":");
   }
 
   function getBrowseCardSelector() {
@@ -391,6 +399,23 @@
     }
   }
 
+  function getBrowseCardMetadata(cardLink, card) {
+    const context = [
+      cardLink.getAttribute("aria-label"),
+      cardLink.querySelector("img[alt]")?.alt,
+      card?.innerText
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const year = NetflixDouban.parseYear(context);
+    const mediaType = /\b(episodes?|seasons?|series|limited series|tv series|anime)\b/i.test(context)
+      ? "tv"
+      : /\b(movie|film)\b/i.test(context)
+        ? "movie"
+        : "";
+    return { year, mediaType };
+  }
+
   function getBrowseCardDetails(cardLink) {
     const card = getCardHost(cardLink);
     const title =
@@ -399,13 +424,17 @@
         : platform === "disney"
           ? getDisneyCardTitle(cardLink)
           : getNetflixCardTitle(cardLink);
-    const key = lookupKey(title);
     const href = cardLink.getAttribute("href") || "";
-    if (!card || !title || !key || !href) return null;
+    if (!card || !title || !href) return null;
+    const { year, mediaType } = getBrowseCardMetadata(cardLink, card);
+    const key = lookupKey(title, year, mediaType);
+    if (!key) return null;
 
     return {
       card,
       title,
+      year,
+      mediaType,
       key,
       identity: platform + ":" + stableCardPath(href) + ":" + key
     };
@@ -416,7 +445,7 @@
     const details = getBrowseCardDetails(cardLink);
     if (!details) return;
 
-    const { card, title, key, identity } = details;
+    const { card, title, year, mediaType, key, identity } = details;
     if (card.dataset.dourateCardIdentity !== identity) {
       card.dataset.dourateCardIdentity = identity;
       card.dataset.dourateTitle = title;
@@ -435,13 +464,13 @@
     queuedBrowseKeys.add(key);
     // The page has a finite set of rendered rows. Keep DOM order so loading
     // and badges appear in the same intuitive sequence.
-    browseQueue.push({ key, title, background });
+    browseQueue.push({ key, title, year, mediaType, background });
     drainBrowseQueue();
   }
 
   function drainBrowseQueue() {
     while (browseInFlightKeys.size < MAX_BROWSE_LOOKUPS && browseQueue.length) {
-      const { key, title, background } = browseQueue.shift();
+      const { key, title, year, mediaType, background } = browseQueue.shift();
       queuedBrowseKeys.delete(key);
       if (browseResults.has(key) || browseInFlightKeys.has(key)) continue;
 
@@ -449,9 +478,15 @@
       const lookup =
         background && isFullBrowseMode()
           ? delay(FULL_BACKGROUND_DELAY_MS).then(() =>
-              chrome.runtime.sendMessage({ type: "LOOKUP_DOUBAN_RATING", payload: { title } })
+              chrome.runtime.sendMessage({
+                type: "LOOKUP_DOUBAN_RATING",
+                payload: { title, year, mediaType }
+              })
             )
-          : chrome.runtime.sendMessage({ type: "LOOKUP_DOUBAN_RATING", payload: { title } });
+          : chrome.runtime.sendMessage({
+              type: "LOOKUP_DOUBAN_RATING",
+              payload: { title, year, mediaType }
+            });
 
       lookup
         .then((result) => {

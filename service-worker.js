@@ -3,12 +3,15 @@ importScripts("shared.js");
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 15;
 const DOUBAN_REQUEST_INTERVAL_MS = 2000;
+const PROVIDER_COOLDOWN_MS = 1000 * 60 * 30;
 const CACHE_STORAGE_PREFIX = "douRateCache:";
+const DIAGNOSTICS_STORAGE_KEY = "douRateDiagnostics";
 const lookupCache = new Map();
 const pendingLookups = new Map();
 const canonicalTitleCache = new Map();
 let doubanRequestChain = Promise.resolve();
 let lastDoubanRequestAt = 0;
+let diagnosticsCache = null;
 
 function lookupError(reason, message) {
   const error = new Error(message || reason);
@@ -19,8 +22,74 @@ function lookupError(reason, message) {
 function isLikelyChallengeFailure(error) {
   return (
     error?.reason === "douban_challenge" ||
-    /(?:search|suggestion) lookup failed \((?:403|429)\)/i.test(String(error?.message || ""))
+    /(?:search|suggestion|subject) lookup failed \((?:403|429)\)/i.test(
+      String(error?.message || "")
+    )
   );
+}
+
+function lookupFailureFromResponse(label, status) {
+  const reason = status === 403 || status === 429 ? "douban_challenge" : "network_error";
+  return lookupError(reason, `${label} lookup failed (${status})`);
+}
+
+async function getDiagnostics() {
+  if (diagnosticsCache) return diagnosticsCache;
+  try {
+    diagnosticsCache =
+      (await chrome.storage.local.get(DIAGNOSTICS_STORAGE_KEY))[DIAGNOSTICS_STORAGE_KEY] || {};
+  } catch (error) {
+    console.debug("[DouRate] diagnostics unavailable", error);
+    diagnosticsCache = {};
+  }
+  return diagnosticsCache;
+}
+
+async function updateDiagnostics(patch) {
+  const current = await getDiagnostics();
+  diagnosticsCache = { ...current, ...patch };
+  try {
+    await chrome.storage.local.set({ [DIAGNOSTICS_STORAGE_KEY]: diagnosticsCache });
+  } catch (error) {
+    console.debug("[DouRate] could not persist diagnostics", error);
+  }
+  return diagnosticsCache;
+}
+
+async function getActiveCooldown() {
+  const diagnostics = await getDiagnostics();
+  const cooldownUntil = Number(diagnostics.cooldownUntil || 0);
+  if (cooldownUntil > Date.now()) return cooldownUntil;
+  if (cooldownUntil) await updateDiagnostics({ cooldownUntil: 0 });
+  return 0;
+}
+
+async function activateProviderCooldown() {
+  const now = Date.now();
+  const cooldownUntil = now + PROVIDER_COOLDOWN_MS;
+  await updateDiagnostics({
+    lastFailureAt: now,
+    lastFailureReason: "douban_challenge",
+    cooldownUntil
+  });
+  return cooldownUntil;
+}
+
+async function recordLookupOutcome(result) {
+  const now = Date.now();
+  if (result?.ok) {
+    await updateDiagnostics({
+      lastSuccessAt: now,
+      lastFailureAt: 0,
+      lastFailureReason: "",
+      cooldownUntil: 0
+    });
+    return;
+  }
+  await updateDiagnostics({
+    lastFailureAt: now,
+    lastFailureReason: result?.reason || "network_error"
+  });
 }
 
 function cacheKey(title, year, mediaType) {
@@ -75,12 +144,16 @@ async function fetchJson(url) {
     credentials: "include",
     headers: { Accept: "application/json" }
   });
-  if (!response.ok) throw new Error(`Suggestion lookup failed (${response.status})`);
+  if (!response.ok) throw lookupFailureFromResponse("Suggestion", response.status);
   const body = await response.text();
   if (NetflixDouban.looksLikeDoubanChallenge(body)) {
     throw lookupError("douban_challenge", "Suggestion lookup returned a verification page");
   }
-  return JSON.parse(body);
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw lookupError("provider_format_changed", "Suggestion lookup returned invalid JSON");
+  }
 }
 
 async function fetchDoubanSearchPage(title) {
@@ -92,7 +165,7 @@ async function fetchDoubanSearchPage(title) {
     credentials: "include",
     headers: { Accept: "text/html,application/xhtml+xml" }
   });
-  if (!response.ok) throw new Error(`Search lookup failed (${response.status})`);
+  if (!response.ok) throw lookupFailureFromResponse("Search", response.status);
   const html = await response.text();
   if (NetflixDouban.looksLikeDoubanChallenge(html)) {
     throw lookupError("douban_challenge", "Search lookup returned a verification page");
@@ -126,22 +199,30 @@ function findSearchMatch(data, title, year, mediaType, minimumScore) {
 
 async function lookupDoubanSearch(title, year, mediaType, minimumScore) {
   const html = await fetchDoubanSearchPage(title);
+  const data = parseSearchData(html);
+  if (!data) return { result: null, reason: "provider_format_changed" };
   const match = findSearchMatch(
-    parseSearchData(html),
+    data,
     title,
     year,
     mediaType,
     minimumScore
   );
   const value = Number(match?.rating?.value);
-  if (!match || !Number.isFinite(value) || value <= 0 || value > 10) return null;
+  if (!match) return { result: null, reason: "no_match" };
+  if (!Number.isFinite(value) || value <= 0 || value > 10) {
+    return { result: null, reason: "missing_score" };
+  }
 
   return {
-    ok: true,
-    score: value.toFixed(1),
-    sourceUrl: match.url,
-    matchedTitle: match.title || title,
-    year: match.year || ""
+    result: {
+      ok: true,
+      score: value.toFixed(1),
+      sourceUrl: match.url,
+      matchedTitle: match.title || title,
+      year: match.year || ""
+    },
+    reason: ""
   };
 }
 
@@ -218,7 +299,7 @@ async function fetchSubjectPage(url) {
     credentials: "include",
     headers: { Accept: "text/html,application/xhtml+xml" }
   });
-  if (!response.ok) throw new Error(`Subject lookup failed (${response.status})`);
+  if (!response.ok) throw lookupFailureFromResponse("Subject", response.status);
   return response.text();
 }
 
@@ -228,13 +309,31 @@ function sleep(milliseconds) {
 
 function fetchDoubanAtConservativeRate(url, options) {
   const task = doubanRequestChain.then(async () => {
+    const cooldownUntil = await getActiveCooldown();
+    if (cooldownUntil) {
+      const error = lookupError("douban_cooldown", "Douban lookup paused after verification");
+      error.retryAt = cooldownUntil;
+      throw error;
+    }
     const waitMs = Math.max(
       0,
       DOUBAN_REQUEST_INTERVAL_MS - (Date.now() - lastDoubanRequestAt)
     );
     if (waitMs) await sleep(waitMs);
     lastDoubanRequestAt = Date.now();
-    return fetch(url, options);
+    const response = await fetch(url, options);
+    if (response.status === 403 || response.status === 429) {
+      await activateProviderCooldown();
+    } else if (response.ok) {
+      // Inspect a clone before releasing the next queued task. Douban can
+      // return a verification page with HTTP 200, so status alone is not a
+      // sufficient safety signal.
+      const responseBody = await response.clone().text();
+      if (NetflixDouban.looksLikeDoubanChallenge(responseBody)) {
+        await activateProviderCooldown();
+      }
+    }
+    return response;
   });
   // Keep the local queue working after an individual request fails.
   doubanRequestChain = task.catch(() => undefined);
@@ -251,6 +350,11 @@ async function lookupDoubanRating({ title, year, mediaType }) {
   if (cached) return cached;
   if (pendingLookups.has(key)) return pendingLookups.get(key);
 
+  const cooldownUntil = await getActiveCooldown();
+  if (cooldownUntil) {
+    return { ok: false, reason: "douban_cooldown", retryAt: cooldownUntil };
+  }
+
   const lookup = resolveDoubanRating(cleanTitle, year, normalizedMediaType, key);
   pendingLookups.set(key, lookup);
   try {
@@ -260,35 +364,40 @@ async function lookupDoubanRating({ title, year, mediaType }) {
   }
 }
 
+async function finishLookup(key, result) {
+  if (result?.ok) await saveCached(key, result);
+  await recordLookupOutcome(result);
+  return result;
+}
+
 async function resolveDoubanRating(cleanTitle, year, mediaType, key) {
   try {
     // A browse card has no reliable year or media type, so accept raw English
     // search results only when the title itself is an exact match. Detail pages
     // pass their Netflix metadata and can use a broader, validated match.
     const rawMinimumScore = year || mediaType ? 1 : 100;
-    const searchResult = await lookupDoubanSearch(
+    const search = await lookupDoubanSearch(
       cleanTitle,
       year,
       mediaType,
       rawMinimumScore
     );
-    if (searchResult) {
-      await saveCached(key, searchResult);
-      return searchResult;
-    }
+    if (search.result) return finishLookup(key, search.result);
+    let searchFormatChanged = search.reason === "provider_format_changed";
 
     const canonicalTitle = await getCanonicalDoubanTitle(cleanTitle, mediaType);
     if (canonicalTitle && NetflixDouban.normalizedTitle(canonicalTitle) !== NetflixDouban.normalizedTitle(cleanTitle)) {
-      const canonicalResult = await lookupDoubanSearch(canonicalTitle, year, mediaType, 70);
-      if (canonicalResult) {
-        await saveCached(key, canonicalResult);
-        return canonicalResult;
-      }
+      const canonicalSearch = await lookupDoubanSearch(canonicalTitle, year, mediaType, 70);
+      if (canonicalSearch.result) return finishLookup(key, canonicalSearch.result);
+      searchFormatChanged ||= canonicalSearch.reason === "provider_format_changed";
     }
 
     const suggestUrl = new URL("https://movie.douban.com/j/subject_suggest");
     suggestUrl.searchParams.set("q", cleanTitle);
     const suggestions = await fetchJson(suggestUrl);
+    if (!Array.isArray(suggestions)) {
+      return finishLookup(key, { ok: false, reason: "provider_format_changed" });
+    }
     const candidate = NetflixDouban.pickSuggestion(
       suggestions,
       cleanTitle,
@@ -296,15 +405,25 @@ async function resolveDoubanRating(cleanTitle, year, mediaType, key) {
       mediaType,
       rawMinimumScore
     );
-    if (!candidate) return { ok: false, reason: "no_match" };
+    if (!candidate) {
+      return finishLookup(key, {
+        ok: false,
+        reason: searchFormatChanged ? "provider_format_changed" : "no_match"
+      });
+    }
 
     const html = await fetchSubjectPage(candidate.url);
     const score = NetflixDouban.extractDoubanRating(html);
     if (!score) {
-      return {
+      const reason = NetflixDouban.looksLikeDoubanChallenge(html)
+        ? "douban_challenge"
+        : "missing_score";
+      const result = {
         ok: false,
-        reason: NetflixDouban.looksLikeDoubanChallenge(html) ? "douban_challenge" : "missing_score"
+        reason
       };
+      if (reason === "douban_challenge") result.retryAt = await activateProviderCooldown();
+      return finishLookup(key, result);
     }
 
     const result = {
@@ -314,14 +433,20 @@ async function resolveDoubanRating(cleanTitle, year, mediaType, key) {
       matchedTitle: candidate.title || candidate.sub_title || cleanTitle,
       year: candidate.year || ""
     };
-    await saveCached(key, result);
-    return result;
+    return finishLookup(key, result);
   } catch (error) {
     console.warn("[Netflix Douban Rating] lookup failed", error);
-    return {
-      ok: false,
-      reason: isLikelyChallengeFailure(error) ? "douban_challenge" : "network_error"
-    };
+    if (error?.reason === "douban_cooldown") {
+      return finishLookup(key, {
+        ok: false,
+        reason: "douban_cooldown",
+        retryAt: error.retryAt || (await getActiveCooldown())
+      });
+    }
+    const reason = isLikelyChallengeFailure(error) ? "douban_challenge" : error?.reason || "network_error";
+    const result = { ok: false, reason };
+    if (reason === "douban_challenge") result.retryAt = await activateProviderCooldown();
+    return finishLookup(key, result);
   }
 }
 
