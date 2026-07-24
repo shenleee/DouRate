@@ -1,83 +1,47 @@
-DouRate Guide
-============
+DouRate 安装说明 / Installation Guide
+======================================
 
-Package: dourate-demo-0.2.3.zip
+版本 / Version: 0.2.4
+安装包 / Package: dourate-demo-0.2.4.zip
 
-中文说明：本文件与 ZIP 内的“DouRate-本地安装说明.txt”内容一致；使用 ASCII 文件名是为了避免部分解压工具显示中文文件名异常。
+中文
+----
 
-Purpose and disclaimer
-----------------------
+1. 解压 ZIP 到任意本地文件夹。Chrome 不能直接安装 ZIP，必须选择解压后的文件夹。
+2. 在 Chrome 地址栏打开 `chrome://extensions`，打开右上角的“开发者模式”。
+3. 点击“加载已解压的扩展程序（Load unpacked）”，选择直接包含 `manifest.json` 的 DouRate 文件夹。
+4. 确认扩展名称为 DouRate、版本为 0.2.4；点击浏览器工具栏中的图标也可查看当前版本号。
+5. 打开或刷新 Netflix、Prime Video 或 Disney+：详情页会显示可匹配的评分；浏览卡片行为取决于工具栏菜单中的加载模式。
 
-DouRate is provided solely for personal day-to-day learning and discussion. It has no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban.
+加载模式：
 
-1. Extract the ZIP file to any local folder.
-   Chrome cannot install the ZIP by double-clicking it. Select the extracted folder instead.
+- **仅详情页加载**：默认且最保守，只查询单个标题详情页。
+- **首页局部加载**：只查询当前可见区域附近的卡片；滚动后再查询新出现的卡片。
+- **首页全自动加载**：按展示顺序查询平台已经渲染的卡片；屏幕外卡片会延后开始查询。此模式仍可能触发平台保护机制。
 
-2. Open chrome://extensions in Chrome.
+更新方式：替换或打开新版解压文件夹后，回到 `chrome://extensions` 点击 DouRate 卡片上的“更新（Update）”，再刷新流媒体页面。
 
-3. Turn on Developer mode.
+速度与异常：单个详情页通常较快。Browse 页面会逐步显示评分。无法可靠匹配、没有评分、网络异常或页面格式异常时会显示问号；悬浮提示会说明原因，点击问号可自行在豆瓣搜索。检测到验证页、403 或 429 后，插件会暂停新的查询约 30 分钟；已缓存评分仍可显示。
 
-4. Click Load unpacked and select the extracted DouRate folder. The selected folder must directly contain manifest.json.
+隐私、用途与免责声明：DouRate 不会要求密码，也不会读取、保存或公开 Cookie 值；浏览器仅可能使用已有的正常豆瓣会话。仅供个人日常学习和交流使用，没有任何商业用途。请勿滥用，包括批量数据采集或其他不合理用途。用户应自行承担使用行为及其后果；开发者不对不合理使用造成的后果承担责任。使用 DouRate 不代表已获得豆瓣许可或授权。
 
-5. Confirm that the enabled extension is named DouRate, version 0.2.3.
+English
+-------
 
-6. Open or refresh Netflix, Prime Video, or Disney+:
-   - A title page displays a matched Douban score near the title.
-   - Browse-card behavior follows the loading mode selected from the DouRate popup.
+1. Extract the ZIP file to any local folder. Chrome cannot install a ZIP directly; select the extracted folder instead.
+2. Open `chrome://extensions` in Chrome and enable Developer mode.
+3. Click Load unpacked and select the DouRate folder that directly contains `manifest.json`.
+4. Confirm the extension is named DouRate and is version 0.2.4. The toolbar popup also shows the current version.
+5. Open or refresh Netflix, Prime Video, or Disney+. A title page displays an available matched score; browse-card behaviour follows the loading mode in the toolbar popup.
 
-Loading modes
--------------
+Loading modes:
 
-- **Details only** (default): looks up scores only on an individual streaming title page.
-- **Browse: visible area**: looks up only cards near the current viewport; more cards load after scrolling.
-- **Browse: full page**: looks up every card the platform has rendered, in display order. Cards below the viewport wait at least eight seconds before their lookup begins. This remains an automated use pattern and can still trigger Douban's security checks.
+- **Details only**: the default and most conservative mode; looks up only an individual title page.
+- **Browse: visible area**: looks up cards near the current viewport, then newly visible cards after scrolling.
+- **Browse: full page**: looks up cards the platform has already rendered in display order; cards below the fold start later. This mode can still trigger platform protection mechanisms.
 
-Choose a mode from the DouRate toolbar popup, then refresh the current streaming page for the change to apply.
+Updating: after replacing or opening the new extracted folder, return to `chrome://extensions`, click Update on the DouRate card, then refresh the streaming page.
 
-Loading expectations
---------------------
+Speed and failures: an individual title page is normally quicker. Browse scores appear progressively. A question mark is shown for an unreliable match, missing score, temporary failure, or changed page format; its tooltip explains the reason and links to a manual Douban search. On a verification page, HTTP 403, or HTTP 429, DouRate pauses new direct lookups for about 30 minutes while cached ratings remain available.
 
-- An available score on an individual title page normally appears quickly.
-- In full-page mode, cards are looked up one at a time in display order (top-to-bottom, then left-to-right), including cards below the fold. Scores fill in progressively, so allow time for the page-wide list to complete.
-
-Douban session recommendation
------------------------------
-
-- DouRate never asks for a password and does not read, store, or expose cookie values. The browser may use its existing normal Douban session for requests.
-- Rate limiting does not guarantee that Douban will not show verification or take account action. If verification appears, stop automatic browsing lookups rather than retrying them.
-
-Verification protection and status
-----------------------------------
-
-- If DouRate detects a Douban verification page, HTTP 403, or HTTP 429, it pauses new direct-Douban lookups for about 30 minutes. Previously cached ratings can still display without a new request.
-- The DouRate toolbar popup shows the most recent success/failure and any active pause. It also provides a user-initiated link to open Douban in the same browser; opening the popup does not make an extra test lookup.
-
-Updating
---------
-
-After changing source code, open chrome://extensions, click Update on the DouRate card, then refresh the current streaming page.
-
-Troubleshooting
----------------
-
-- If a score cannot be fetched, DouRate shows `?/10 from Douban` on a title page and `?` on a browse card. Click it to search that title on Douban yourself.
-- The question-mark tooltip states the available reason, such as an unreliable match, a verification pause, no score on the matched page, a changed search format, or a temporary request failure.
-- Browse-card scores appear progressively in display order to limit request frequency. Titles that cannot be matched are shown with a question-mark search link instead of a score.
-- A small number of titles can still fail to load because Douban has no available result, a title is translated differently, or a sufficiently reliable match cannot be made. In these cases, the question-mark link is shown instead of a score.
-
-Changelog
----------
-
-### v0.2.3 · 2026-07-24
-
-- Detecting a Douban verification page, HTTP 403, or HTTP 429 pauses new direct-Douban lookups globally for about 30 minutes; cached ratings remain usable.
-- A changed Douban search-page format is now distinguished from a genuinely unreliable title match.
-- The toolbar popup now shows recent lookup status and a user-initiated Douban link without making an extra request.
-- Browse-card lookups include a visible year or media type when the platform DOM provides one, improving same-title matching.
-
-### v0.2.2 · 2026-07-24
-
-- Successfully fetched scores are cached in the local browser for 15 days; failed, unmatched, and verification results are not cached.
-- Netflix genre, New & Popular (/latest), and My List pages support browse-card ratings.
-- The question-mark tooltip distinguishes an unreliable match, a Douban verification request, no available score, and a temporary request failure.
-- The full-page loading warning now refers to possible platform protection mechanisms.
+Privacy, purpose, and disclaimer: DouRate never asks for a password and does not read, store, or expose cookie values; the browser may use an existing normal Douban session. It is provided solely for personal day-to-day learning and discussion, with no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban.

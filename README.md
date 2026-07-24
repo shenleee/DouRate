@@ -1,66 +1,41 @@
-# DouRate — local demonstration
+# DouRate
 
-Version 0.2.3 · Manifest V3 · local installation only
+Version 0.2.4 · Chrome Manifest V3 · local installation package
 
-DouRate displays an available Douban score such as 9.4/10 from Douban on title pages and as a compact badge on browse cards for Netflix, Prime Video, and Disney+. Clicking a score opens the matched Douban page.
+## 中文
 
-## Local installation
+DouRate 会在 Netflix、Prime Video 和 Disney+ 的标题详情页，以及可用的浏览卡片上显示豆瓣评分。点击评分可打开对应的豆瓣条目；无法可靠匹配时显示问号，并链接至豆瓣搜索。
 
-Chrome installs a development extension from an unpacked folder, not by double-clicking the ZIP file.
+### 使用方式与数据
 
-1. Extract dourate-demo-0.2.3.zip, if using the packaged artifact.
-2. Open chrome://extensions.
-3. Enable Developer mode.
-4. Click Load unpacked and select the extracted netflix-douban-rating folder.
-5. Open or reload a Netflix, Prime Video, or Disney+ title or browse page.
+- 仅在上述流媒体网站页面运行，不修改播放或 DRM。
+- 评分请求从用户自己的浏览器直接发往豆瓣；Wikidata 仅用于跨语言片名消歧。
+- 不读取、保存或公开用户名、密码或 Cookie。浏览器可能使用已有的正常豆瓣登录会话。
+- 成功匹配的评分只保存在本机浏览器 15 天；不会同步或发送给开发者服务。
+- 发现豆瓣验证页、HTTP 403 或 429 后，插件会暂停新的直接查询约 30 分钟；已缓存评分仍可显示。
+- 工具栏菜单可选择加载模式，并查看最近一次查询成功／失败、验证暂停状态及用户主动打开豆瓣的入口。
 
-When updating the source folder, select Update on the extensions page, then reload the current streaming tab.
+### 安装与使用
 
-## Behaviour and data flow
+请阅读 [INSTALLATION.txt](INSTALLATION.txt) 获取本地安装步骤。完整版本记录见 [CHANGELOG.md](CHANGELOG.md)。
 
-- Runs only on Netflix, Prime Video, and Disney+ website pages.
-- Reads the visible platform title, and when available its release year and media type, to resolve a rating.
-- Makes direct requests from the user's browser to Douban; Wikidata is used only as a cross-language title disambiguation fallback.
-- The browser may attach an existing normal Douban session to those requests. The extension does not request, read, persist, or expose usernames, passwords, or cookie values.
-- Stores matched title/rating results in chrome.storage.local for up to 15 days. This device-local cache reduces repeat requests and is never synced or sent to a developer-operated service.
-- If a Douban verification page, HTTP 403, or HTTP 429 is detected, pauses new direct-Douban lookups globally for about 30 minutes. Cached ratings remain available without a new request.
-- It does not alter platform playback or DRM, and does not send title metadata or browsing history to a developer-operated service.
-- Scores are shown only for sufficiently confident matches. Ambiguous or unavailable results show a question-mark search link rather than a guessed score. When a browse card exposes a year or media type, that metadata is included in matching.
+用途与免责声明：DouRate 仅供个人日常学习和交流使用，没有任何商业用途。请勿滥用，包括批量数据采集或其他不合理用途。用户应自行对使用行为及其后果负责；开发者不对不合理使用造成的后果承担责任。使用 DouRate 不代表已获得豆瓣的许可或授权。
 
-## Loading modes
+## English
 
-- Details only (default) fetches only when an individual streaming title is open.
-- Browse: visible area fetches only cards near the viewport; new cards are fetched after scrolling.
-- Browse: full page fetches all currently rendered cards in display order. Cards below the fold wait at least eight seconds before their lookup begins.
+DouRate displays available Douban ratings on Netflix, Prime Video, and Disney+ title pages and supported browse cards. Clicking a rating opens the matching Douban title. When a reliable match is unavailable, it shows a question mark linked to a Douban search instead of guessing.
 
-Select a mode from the DouRate toolbar popup, then refresh the current streaming page for it to take effect. The full-page option remains automated use and can still trigger Douban's security checks; its slower pace is not a guarantee against verification or account action.
+### Behaviour and data
 
-The toolbar popup also reports recent lookup success/failure and an active verification pause. Its Douban link opens only when the user selects it; opening the popup does not initiate an additional test request.
+- Runs only on the streaming websites above; it does not alter playback or DRM.
+- Rating requests go directly from the user's browser to Douban. Wikidata is used only to disambiguate cross-language titles.
+- It does not read, store, or expose usernames, passwords, or cookie values. The browser may use an existing normal Douban session.
+- Successfully matched ratings are cached locally in the browser for 15 days; they are never synced or sent to a developer-operated service.
+- When a Douban verification page, HTTP 403, or HTTP 429 is detected, new direct lookups pause for about 30 minutes while cached ratings remain available.
+- The toolbar popup provides loading-mode controls, recent lookup status, verification-pause status, and a user-initiated link to Douban.
 
-A small number of titles can still be unavailable because Douban has no available result, the platform and Douban titles use different translations, or a sufficiently reliable match cannot be made. In those cases, DouRate shows a question-mark search link instead of a guessed score.
+### Installation and use
 
-## Loading expectations
+See [INSTALLATION.txt](INSTALLATION.txt) for local installation steps. See [CHANGELOG.md](CHANGELOG.md) for the complete version history.
 
-- On an individual streaming title page, an available rating usually appears quickly.
-- In full-page mode, cards the platform has already rendered are looked up one at a time in display order, including cards below the fold. Scores fill in progressively, so please allow time for the page-wide list to complete.
-
-## Package contents
-
-- manifest.json — Manifest V3 definition and the exact sites the extension can access.
-- content.js / content.css — Netflix, Prime Video, and Disney+ page and browse-card overlay.
-- service-worker.js — local matching, caching, and direct lookup logic.
-- shared.js — title normalisation and confidence scoring.
-- assets/douban-mark.svg — the in-overlay mark.
-- tests/ — dependency-free checks for matching and score extraction.
-
-## Verification
-
-Run these commands from this folder:
-
-    node --test tests/shared.test.mjs
-    node --check content.js
-    node --check service-worker.js
-
-## Scope note
-
-This package is a private, locally installed demonstration for evaluating the product and discussing possible authorisation. It is not represented as a public Chrome Web Store release or as an official Netflix, Prime Video, Disney+, or Douban product.
+Purpose and disclaimer: DouRate is provided solely for personal day-to-day learning and discussion, with no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban.

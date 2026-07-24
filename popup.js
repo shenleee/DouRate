@@ -8,6 +8,9 @@ const inputs = [...document.querySelectorAll("input[name='loading-mode']")];
 const status = document.getElementById("status");
 const diagnostics = document.getElementById("diagnostics");
 const diagnosticsPanel = document.getElementById("diagnostics-panel");
+const version = document.getElementById("version");
+
+version.textContent = `版本 / Version ${chrome.runtime.getManifest().version}`;
 
 function selectMode(mode) {
   const selected = validModes.has(mode) ? mode : DEFAULT_MODE;
