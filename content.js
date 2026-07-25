@@ -447,7 +447,10 @@
   }
 
   function getBrowseCardSelector() {
-    if (platform === "prime") return "article a[href^='/detail/'][aria-label]";
+    // Prime's regular browse rows normally expose the title as link text,
+    // without an aria-label. The aria-label-only variant finds mostly Hero
+    // controls and misses the catalogue cards users compare on the homepage.
+    if (platform === "prime") return "article a[href^='/detail/']";
     if (platform === "disney") return "a[href*='/browse/entity-']";
     return "a[href*='/browse?jbv='][aria-label], a[href^='/watch/'][aria-label]";
   }
@@ -499,8 +502,27 @@
 
   function getPrimeCardTitle(cardLink) {
     const aria = String(cardLink.getAttribute("aria-label") || "").trim();
-    if (!aria || isPrimeControlLabel(aria)) return "";
-    const imageAlt = cardLink.closest("article")?.querySelector("img[alt]")?.alt?.trim() || "";
+    if (aria && isPrimeControlLabel(aria)) return "";
+
+    const card = cardLink.closest("article");
+    // Hero articles contain title, episode-play and detail-control links. If
+    // Prime gives the article a real title link, ignore its unlabeled visual
+    // duplicate so a poster alt such as "Title - Season 1" cannot replace it.
+    const primaryTitleLink = [...(card?.querySelectorAll("a[href^='/detail/'][aria-label]") || [])]
+      .find((link) => {
+        const label = String(link.getAttribute("aria-label") || "").trim();
+        return label && !isPrimeControlLabel(label);
+      });
+    if (!aria && primaryTitleLink && primaryTitleLink !== cardLink) return "";
+
+    const imageAlt =
+      cardLink.querySelector("img[alt]")?.alt?.trim() ||
+      card?.querySelector("img[alt]")?.alt?.trim() ||
+      "";
+    const fromText = String(cardLink.innerText || "").trim();
+    const fallbackTitle = imageAlt || fromText;
+    if (!aria && (!fallbackTitle || isPrimeControlLabel(fallbackTitle))) return "";
+
     const normalAria = NetflixDouban.normalizedTitle(aria);
     const normalImage = NetflixDouban.normalizedTitle(imageAlt);
     // Prime occasionally shortens a card's accessible name (for example,
@@ -513,7 +535,7 @@
     ) {
       return NetflixDouban.cleanTitle(imageAlt);
     }
-    return NetflixDouban.cleanTitle(aria);
+    return NetflixDouban.cleanTitle(aria || fallbackTitle);
   }
 
   function getNetflixCardTitle(cardLink) {
@@ -642,9 +664,10 @@
     const results = getBrowseResults(key, { requestDouban });
     renderBrowseBadge(card, results, identity);
 
-    // IMDb requests are scheduled for all rendered browse cards, regardless
-    // of the Douban mode. Once title-ID mapping is cached, score reads are
-    // local IndexedDB lookups and display independently.
+    // IMDb requests are scheduled for every rendered browse card, regardless
+    // of platform, viewport position, or the Douban mode. Once title-ID
+    // mapping is cached, score reads are local IndexedDB lookups and display
+    // independently. Only direct Douban requests remain mode-controlled.
     queueIMDbBrowseLookup({ key, title, year, mediaType });
     if (requestDouban) queueDoubanBrowseLookup({ key, title, year, mediaType, background });
   }

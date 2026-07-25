@@ -16,6 +16,8 @@ This record starts with the initial internal prototype and lists every retained 
   Simplifies the Douban browse-card score to the Douban icon plus the score, removing the redundant “豆” label.
 - 浏览卡片评分改为不可点击，避免 Netflix 等平台的悬浮放大交互吞掉评分链接；详情页评分仍可点击。安装说明同步明确：在同一已加载文件夹点击 Update 可保留本机缓存与 IMDb 索引，卸载则会清除它们。
   Makes browse-card scores non-clickable so platform hover expansion does not swallow a rating link; title-page ratings remain clickable. Installation guidance now clarifies that updating the same loaded folder preserves local caches and the IMDb index, while uninstalling clears them.
+- 修复 Prime Video 首页常规作品卡片未提供 `aria-label` 时被跳过的问题；现会回退到海报替代文字或卡片标题，同时排除播放与详情控制项。IMDb 会像 Netflix 一样优先对所有已渲染的 Prime 卡片独立排队加载，豆瓣仍只遵循豆瓣加载模式。
+  Fixes Prime Video homepage cards being skipped when they have no `aria-label`; title extraction now falls back to poster alt text or card text while excluding playback and detail controls. IMDb independently prioritizes every rendered Prime card, as on Netflix, while Douban remains governed only by its loading mode.
 
 ## v0.3.0 · 2026-07-25
 
