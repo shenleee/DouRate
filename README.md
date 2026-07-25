@@ -1,55 +1,45 @@
 # DouRate
 
-Version 0.3.1 · Chrome Manifest V3 · personal local prototype
+Chrome Manifest V3 · v0.3.1 · personal, local prototype
 
 ## 中文
 
-DouRate 会在 Netflix、Prime Video 和 Disney+ 的标题详情页，以及可用的浏览卡片上显示可用的豆瓣与 IMDb 评分。两个来源均成功时并列显示；只有一个成功时只显示该来源；均无法使用时显示各自带原因提示的问号。
+DouRate 在 Netflix、Prime Video 和 Disney+ 的标题详情页及支持的浏览卡片上显示可用的豆瓣与 IMDb 评分，帮助更快比较作品。
 
-### 使用方式与数据
+### 快速开始
 
-- 仅在上述流媒体网站页面运行，不修改播放或 DRM。
-- 豆瓣评分请求从用户自己的浏览器直接发往豆瓣；Wikidata 用于跨语言片名消歧。插件不会读取、保存或公开用户名、密码或 Cookie。
-- 成功匹配的豆瓣评分只保存在本机浏览器 15 天；发现验证页、HTTP 403 或 429 后，新直接查询会暂停约 30 分钟。
-- IMDb 评分来自用户在工具栏弹窗中**主动下载**的官方 `title.ratings.tsv.gz` 数据集。评分索引仅保存在当前浏览器的本机 IndexedDB；不会自动下载、同步、上传给开发者或抓取 IMDb 网页。
-- 下载完成后，DouRate 使用 Wikidata 的 IMDb ID 消歧后从本地索引读取 IMDb 评分与投票数。没有可靠 IMDb ID 或数据集中没有评分时不会猜测。
-- 弹窗可选择**豆瓣加载模式**、查看豆瓣查询状态，以及下载、手动更新或删除 IMDb 本地数据。新安装默认“首页局部加载”；该模式只控制豆瓣的直接查询。IMDb 会优先使用已缓存的标题 ID 和本机评分索引，不受豆瓣模式限制。
-- 升级时应保留原扩展并在同一个已加载文件夹点击 Chrome 的“更新（Update）”，这样可保留本机缓存和 IMDb 索引；移除/卸载扩展会清除这些数据。
+1. 从 [最新 Release](https://github.com/shenleee/DouRate/releases/latest) 下载 `dourate-demo-0.3.1.zip`。
+2. 解压 ZIP，在 Chrome 打开 `chrome://extensions`，开启“开发者模式”。
+3. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的 DouRate 文件夹。
+4. 刷新 Netflix、Prime Video 或 Disney+ 页面。
 
-### IMDb 数据边界
+### 文档
 
-IMDb 数据功能仅供**个人且非商业**的本机原型使用。请勿分享 IMDb 数据、索引或包含数据的安装包，也不要将它作为公开商店发布或服务的数据来源。IMDb 页面不应由插件自动抓取；如需公开、商业或其他非个人用途，请先取得 IMDb 的相应许可。
+- [安装与更新 / INSTALLATION.txt](INSTALLATION.txt)
+- [版本记录 / CHANGELOG.md](CHANGELOG.md)
+- [完整用户文档 / Wiki](https://github.com/shenleee/DouRate/wiki)：产品概览、工作方式与限制、支持平台、FAQ、故障排查、隐私与数据来源。
 
-Information courtesy of IMDb (https://www.imdb.com). Used with permission.
+### 项目边界
 
-### 安装与使用
-
-请阅读 [INSTALLATION.txt](INSTALLATION.txt) 获取本地安装、IMDb 数据下载与更新步骤。完整版本记录见 [CHANGELOG.md](CHANGELOG.md)。
-
-用途与免责声明：DouRate 仅供个人日常学习和交流使用，没有任何商业用途。请勿滥用，包括批量数据采集或其他不合理用途。用户应自行对使用行为及其后果负责；开发者不对不合理使用造成的后果承担责任。使用 DouRate 不代表已获得豆瓣或 IMDb 的许可或授权。
+仅供个人、非商业、本机使用。豆瓣查询由用户浏览器直接发起；IMDb 数据只在用户主动下载后保存在该浏览器本地。请勿批量采集、共享 IMDb 数据或将其用于公开／商业服务。详情见 [Wiki 的隐私与数据来源说明](https://github.com/shenleee/DouRate/wiki/Privacy-and-Data-Sources)。
 
 ## English
 
-DouRate displays available Douban and IMDb ratings on Netflix, Prime Video, and Disney+ title pages and supported browse cards. When both providers succeed, they appear side by side. When only one succeeds, only that source is shown. When neither is available, each source shows its own question mark and reason.
+DouRate shows available Douban and IMDb ratings on title pages and supported browse cards for Netflix, Prime Video, and Disney+, making titles easier to compare.
 
-### Behaviour and data
+### Quick start
 
-- Runs only on the streaming websites above; it does not alter playback or DRM.
-- Douban requests go directly from the user's browser to Douban. Wikidata is used for cross-language title disambiguation. The extension does not read, store, or expose usernames, passwords, or cookie values.
-- Successfully matched Douban ratings are cached locally for 15 days. A Douban verification page, HTTP 403, or HTTP 429 pauses new direct lookups for about 30 minutes.
-- IMDb ratings come from the official `title.ratings.tsv.gz` dataset that the user explicitly downloads from the toolbar popup. The parsed index stays only in this browser's local IndexedDB; it is not downloaded automatically, synced, sent to a developer service, or obtained by scraping IMDb pages.
-- After Wikidata resolves a reliable IMDb ID, DouRate reads the IMDb rating and vote count from the local index. It does not guess when the ID or rating is unavailable.
-- The popup provides **Douban loading-mode** controls, Douban diagnostics, and IMDb download, manual update, and deletion controls. Fresh installs default to Browse: visible area; that mode controls only direct Douban requests. IMDb prioritizes cached title IDs and the local rating index independently of the Douban mode.
-- To preserve local caches and the IMDb index during an upgrade, keep the existing extension installed and use Chrome’s Update button on the same loaded folder. Removing/uninstalling the extension clears this data.
+1. Download `dourate-demo-0.3.1.zip` from the [latest Release](https://github.com/shenleee/DouRate/releases/latest).
+2. Extract it, open `chrome://extensions` in Chrome, and enable Developer mode.
+3. Select **Load unpacked**, then choose the DouRate folder that directly contains `manifest.json`.
+4. Refresh Netflix, Prime Video, or Disney+.
 
-### IMDb data boundary
+### Documentation
 
-The IMDb feature is a **personal, non-commercial** local prototype only. Do not share IMDb data, an index, or an installation package containing the data, and do not use it as a source for a public store listing or service. The extension must not automatically scrape IMDb pages. Obtain the appropriate IMDb permission before any public, commercial, or other non-personal use.
+- [Installation and updates / INSTALLATION.txt](INSTALLATION.txt)
+- [Version history / CHANGELOG.md](CHANGELOG.md)
+- [Full user documentation / Wiki](https://github.com/shenleee/DouRate/wiki): overview, behaviour and limits, supported platforms, FAQ, troubleshooting, privacy, and data sources.
 
-Information courtesy of IMDb (https://www.imdb.com). Used with permission.
+### Project boundary
 
-### Installation and use
-
-See [INSTALLATION.txt](INSTALLATION.txt) for local installation and IMDb dataset download/update steps. See [CHANGELOG.md](CHANGELOG.md) for the complete version history.
-
-Purpose and disclaimer: DouRate is provided solely for personal day-to-day learning and discussion, with no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban or IMDb.
+For personal, non-commercial, local use only. Douban requests are made directly by the user’s browser; IMDb data stays in that browser only after the user explicitly downloads it. Do not bulk-collect, redistribute IMDb data, or use it in a public/commercial service. See the [Privacy & Data Sources wiki page](https://github.com/shenleee/DouRate/wiki/Privacy-and-Data-Sources).

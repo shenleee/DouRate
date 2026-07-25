@@ -6,6 +6,7 @@ const DOUBAN_REQUEST_INTERVAL_MS = 2000;
 const PROVIDER_COOLDOWN_MS = 1000 * 60 * 30;
 const CACHE_STORAGE_PREFIX = "douRateCache:";
 const WIKIDATA_TITLE_CACHE_STORAGE_PREFIX = "douRateWikidataTitle:";
+const NETFLIX_CONTENT_CACHE_STORAGE_PREFIX = "douRateNetflixContent:";
 const DIAGNOSTICS_STORAGE_KEY = "douRateDiagnostics";
 const IMDB_STATUS_STORAGE_KEY = "douRateIMDbStatus";
 const IMDB_DATASET_URL = "https://datasets.imdbws.com/title.ratings.tsv.gz";
@@ -15,6 +16,7 @@ const IMDB_METADATA_KEY = "current";
 const IMDB_IMPORT_BATCH_SIZE = 1000;
 const IMDB_STATUS_ROW_INTERVAL = 25000;
 const lookupCache = new Map();
+const netflixContentCache = new Map();
 const pendingLookups = new Map();
 const wikidataTitleCache = new Map();
 const pendingWikidataLookups = new Map();
@@ -118,6 +120,58 @@ function cacheStorageKey(key) {
 
 function wikidataTitleCacheStorageKey(key) {
   return `${WIKIDATA_TITLE_CACHE_STORAGE_PREFIX}${key}`;
+}
+
+function isNetflixContentId(contentId) {
+  return /^netflix:\d+$/.test(String(contentId || ""));
+}
+
+function netflixContentCacheStorageKey(provider, contentId) {
+  return `${NETFLIX_CONTENT_CACHE_STORAGE_PREFIX}${provider}:${contentId}`;
+}
+
+function hasReliableNetflixDetailMetadata(contentId, year, mediaType) {
+  return isNetflixContentId(contentId) && Boolean(year || mediaType);
+}
+
+async function getCachedNetflixContentRating(provider, contentId, title) {
+  if (!isNetflixContentId(contentId)) return null;
+  const storageKey = netflixContentCacheStorageKey(provider, contentId);
+  const expectedTitle = NetflixDouban.normalizedTitle(title);
+  const memoryEntry = netflixContentCache.get(storageKey);
+  if (isFreshCacheEntry(memoryEntry)) {
+    return memoryEntry.title === expectedTitle ? memoryEntry.value : null;
+  }
+  if (memoryEntry) netflixContentCache.delete(storageKey);
+
+  try {
+    const stored = (await chrome.storage.local.get(storageKey))[storageKey];
+    if (!isFreshCacheEntry(stored)) {
+      if (stored) await chrome.storage.local.remove(storageKey);
+      return null;
+    }
+    netflixContentCache.set(storageKey, stored);
+    return stored.title === expectedTitle ? stored.value : null;
+  } catch (error) {
+    console.debug("[DouRate] Netflix content cache unavailable", error);
+    return null;
+  }
+}
+
+async function saveCachedNetflixContentRating(provider, contentId, title, value) {
+  if (!isNetflixContentId(contentId) || !value?.ok) return;
+  const storageKey = netflixContentCacheStorageKey(provider, contentId);
+  const entry = {
+    savedAt: Date.now(),
+    title: NetflixDouban.normalizedTitle(title),
+    value
+  };
+  netflixContentCache.set(storageKey, entry);
+  try {
+    await chrome.storage.local.set({ [storageKey]: entry });
+  } catch (error) {
+    console.debug("[DouRate] could not persist Netflix content cache", error);
+  }
 }
 
 async function getCached(key) {
@@ -729,15 +783,28 @@ function fetchDoubanAtConservativeRate(url, options) {
   return task;
 }
 
-async function lookupDoubanRating({ title, year, mediaType }) {
+async function lookupDoubanRating({ title, year, mediaType, contentId }) {
   const cleanTitle = NetflixDouban.cleanTitle(title);
   if (!cleanTitle) return { ok: false, reason: "missing_title" };
 
   const normalizedMediaType = /^(movie|tv)$/.test(mediaType || "") ? mediaType : "";
+  const contentCached = await getCachedNetflixContentRating("douban", contentId, cleanTitle);
+  if (contentCached) return contentCached;
   const key = cacheKey(cleanTitle, year, normalizedMediaType);
   const cached = await getCached(key);
-  if (cached) return cached;
-  if (pendingLookups.has(key)) return pendingLookups.get(key);
+  if (cached) {
+    if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
+      await saveCachedNetflixContentRating("douban", contentId, cleanTitle, cached);
+    }
+    return cached;
+  }
+  if (pendingLookups.has(key)) {
+    const result = await pendingLookups.get(key);
+    if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
+      await saveCachedNetflixContentRating("douban", contentId, cleanTitle, result);
+    }
+    return result;
+  }
 
   const cooldownUntil = await getActiveCooldown();
   if (cooldownUntil) {
@@ -747,7 +814,11 @@ async function lookupDoubanRating({ title, year, mediaType }) {
   const lookup = resolveDoubanRating(cleanTitle, year, normalizedMediaType, key);
   pendingLookups.set(key, lookup);
   try {
-    return await lookup;
+    const result = await lookup;
+    if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
+      await saveCachedNetflixContentRating("douban", contentId, cleanTitle, result);
+    }
+    return result;
   } finally {
     pendingLookups.delete(key);
   }
@@ -843,13 +914,21 @@ function imdbLookupKey(title, year, mediaType) {
   return `imdb:${cacheKey(title, year, mediaType)}`;
 }
 
-async function lookupIMDbRating({ title, year, mediaType }) {
+async function lookupIMDbRating({ title, year, mediaType, contentId }) {
   const cleanTitle = NetflixDouban.cleanTitle(title);
   if (!cleanTitle) return { ok: false, reason: "missing_title" };
 
   const normalizedMediaType = /^(movie|tv)$/.test(mediaType || "") ? mediaType : "";
+  const contentCached = await getCachedNetflixContentRating("imdb", contentId, cleanTitle);
+  if (contentCached) return contentCached;
   const key = imdbLookupKey(cleanTitle, year, normalizedMediaType);
-  if (imdbLookupCache.has(key)) return imdbLookupCache.get(key);
+  if (imdbLookupCache.has(key)) {
+    const result = await imdbLookupCache.get(key);
+    if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
+      await saveCachedNetflixContentRating("imdb", contentId, cleanTitle, result);
+    }
+    return result;
+  }
 
   const lookup = (async () => {
     const metadata = await getIMDbMetadata();
@@ -889,6 +968,9 @@ async function lookupIMDbRating({ title, year, mediaType }) {
       imdbLookupCache.set(key, result);
     } else {
       imdbLookupCache.delete(key);
+    }
+    if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
+      await saveCachedNetflixContentRating("imdb", contentId, cleanTitle, result);
     }
     return result;
   } catch (error) {

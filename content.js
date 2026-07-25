@@ -33,6 +33,11 @@
   const doubanBrowseInFlightKeys = new Set();
   const browseResults = new Map();
   const browseTargets = new Map();
+  const browseKeysByContentId = new Map();
+  // Updating an unpacked extension invalidates already-injected content
+  // scripts. Keep an old script quiet until its page is refreshed instead of
+  // surfacing an uncaught runtime error to the user.
+  let extensionContextInvalidated = false;
 
   function detectPlatform() {
     const host = location.hostname;
@@ -57,6 +62,39 @@
 
   function delay(milliseconds) {
     return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  }
+
+  function isContextInvalidatedError(error) {
+    return /extension context invalidated/i.test(String(error?.message || error || ""));
+  }
+
+  function markContextInvalidated(error) {
+    if (!isContextInvalidatedError(error)) return false;
+    extensionContextInvalidated = true;
+    return true;
+  }
+
+  function runExtensionCall(operation, fallback) {
+    if (extensionContextInvalidated) return Promise.resolve(fallback);
+    try {
+      return Promise.resolve(operation()).catch((error) => {
+        markContextInvalidated(error);
+        return fallback;
+      });
+    } catch (error) {
+      markContextInvalidated(error);
+      return Promise.resolve(fallback);
+    }
+  }
+
+  function extensionAssetUrl(path) {
+    if (extensionContextInvalidated) return "";
+    try {
+      return chrome.runtime.getURL(path);
+    } catch (error) {
+      markContextInvalidated(error);
+      return "";
+    }
   }
 
   function firstText(selectors) {
@@ -192,7 +230,9 @@
   function createDoubanIcon(className) {
     const icon = document.createElement("img");
     icon.className = className;
-    icon.src = chrome.runtime.getURL("assets/douban-mark.svg");
+    const assetUrl = extensionAssetUrl("assets/douban-mark.svg");
+    if (assetUrl) icon.src = assetUrl;
+    else icon.hidden = true;
     icon.alt = "";
     icon.setAttribute("aria-hidden", "true");
     return icon;
@@ -343,6 +383,7 @@
   }
 
   function renderRating(results, title) {
+    if (extensionContextInvalidated) return;
     const insertionPoint = getInsertionPoint();
     if (!insertionPoint || !title) return clearChip();
 
@@ -376,6 +417,7 @@
   }
 
   function renderBrowseBadge(card, results, cardIdentity) {
+    if (extensionContextInvalidated) return;
     if (
       !card.isConnected ||
       (cardIdentity && card.dataset.dourateCardIdentity !== cardIdentity)
@@ -411,15 +453,17 @@
   }
 
   function lookupIMDb(payload) {
-    return chrome.runtime
-      .sendMessage({ type: "LOOKUP_IMDB_RATING", payload })
-      .catch(() => ({ ok: false, reason: "imdb_storage_unavailable" }));
+    return runExtensionCall(
+      () => chrome.runtime.sendMessage({ type: "LOOKUP_IMDB_RATING", payload }),
+      { ok: false, reason: "imdb_storage_unavailable" }
+    );
   }
 
   function lookupDouban(payload) {
-    return chrome.runtime
-      .sendMessage({ type: "LOOKUP_DOUBAN_RATING", payload })
-      .catch(() => ({ ok: false, reason: "network_error" }));
+    return runExtensionCall(
+      () => chrome.runtime.sendMessage({ type: "LOOKUP_DOUBAN_RATING", payload }),
+      { ok: false, reason: "network_error" }
+    );
   }
 
   async function lookupRatings(payload, { includeDouban = true, onIMDbResult } = {}) {
@@ -567,6 +611,19 @@
     }
   }
 
+  function getPlatformContentId(href) {
+    if (platform !== "netflix") return "";
+    try {
+      const url = new URL(href, location.origin);
+      const browseId = url.searchParams.get("jbv");
+      const titleId = url.pathname.match(/^\/(?:title|watch)\/(\d+)/)?.[1];
+      const id = browseId || titleId || "";
+      return /^\d+$/.test(id) ? `netflix:${id}` : "";
+    } catch {
+      return "";
+    }
+  }
+
   function getBrowseCardMetadata(cardLink, card) {
     const context = [
       cardLink.getAttribute("aria-label"),
@@ -604,6 +661,7 @@
       year,
       mediaType,
       key,
+      contentId: getPlatformContentId(href),
       identity: platform + ":" + stableCardPath(href) + ":" + key
     };
   }
@@ -630,29 +688,30 @@
     return results;
   }
 
-  function queueIMDbBrowseLookup({ key, title, year, mediaType }) {
+  function queueIMDbBrowseLookup({ key, title, year, mediaType, contentId }) {
     const results = browseResults.get(key);
     if (!isPendingRating(results?.imdb)) return;
     if (queuedIMDbBrowseKeys.has(key) || imdbBrowseInFlightKeys.has(key)) return;
     queuedIMDbBrowseKeys.add(key);
-    imdbBrowseQueue.push({ key, title, year, mediaType });
+    imdbBrowseQueue.push({ key, title, year, mediaType, contentId });
     drainIMDbBrowseQueue();
   }
 
-  function queueDoubanBrowseLookup({ key, title, year, mediaType, background }) {
+  function queueDoubanBrowseLookup({ key, title, year, mediaType, contentId, background }) {
     const results = browseResults.get(key);
     if (!isPendingRating(results?.douban)) return;
     if (queuedDoubanBrowseKeys.has(key) || doubanBrowseInFlightKeys.has(key)) return;
     queuedDoubanBrowseKeys.add(key);
-    doubanBrowseQueue.push({ key, title, year, mediaType, background });
+    doubanBrowseQueue.push({ key, title, year, mediaType, contentId, background });
     drainDoubanBrowseQueue();
   }
 
   function queueBrowseCard(cardLink, { requestDouban = false, background = false } = {}) {
+    if (extensionContextInvalidated) return;
     const details = getBrowseCardDetails(cardLink);
     if (!details) return;
 
-    const { card, title, year, mediaType, key, identity } = details;
+    const { card, title, year, mediaType, key, contentId, identity } = details;
     if (card.dataset.dourateCardIdentity !== identity) {
       card.dataset.dourateCardIdentity = identity;
       card.dataset.dourateTitle = title;
@@ -661,6 +720,10 @@
 
     if (!browseTargets.has(key)) browseTargets.set(key, new Map());
     browseTargets.get(key).set(card, identity);
+    if (contentId) {
+      if (!browseKeysByContentId.has(contentId)) browseKeysByContentId.set(contentId, new Set());
+      browseKeysByContentId.get(contentId).add(key);
+    }
     const results = getBrowseResults(key, { requestDouban });
     renderBrowseBadge(card, results, identity);
 
@@ -668,22 +731,42 @@
     // of platform, viewport position, or the Douban mode. Once title-ID
     // mapping is cached, score reads are local IndexedDB lookups and display
     // independently. Only direct Douban requests remain mode-controlled.
-    queueIMDbBrowseLookup({ key, title, year, mediaType });
-    if (requestDouban) queueDoubanBrowseLookup({ key, title, year, mediaType, background });
+    queueIMDbBrowseLookup({ key, title, year, mediaType, contentId });
+    if (requestDouban) {
+      queueDoubanBrowseLookup({ key, title, year, mediaType, contentId, background });
+    }
+  }
+
+  function reuseDetailResultsOnBrowseCards(contentId, detailResults) {
+    if (!contentId) return;
+    for (const key of browseKeysByContentId.get(contentId) || []) {
+      const cardResults = browseResults.get(key);
+      if (!cardResults) continue;
+      let changed = false;
+      for (const provider of ["douban", "imdb"]) {
+        if (isMatchedRating(detailResults?.[provider]) && !isMatchedRating(cardResults[provider])) {
+          cardResults[provider] = detailResults[provider];
+          changed = true;
+        }
+      }
+      if (changed) renderBrowseTargets(key);
+    }
   }
 
   function drainIMDbBrowseQueue() {
+    if (extensionContextInvalidated) return;
     while (imdbBrowseInFlightKeys.size < MAX_BROWSE_IMDB_LOOKUPS && imdbBrowseQueue.length) {
-      const { key, title, year, mediaType } = imdbBrowseQueue.shift();
+      const { key, title, year, mediaType, contentId } = imdbBrowseQueue.shift();
       queuedIMDbBrowseKeys.delete(key);
       const results = browseResults.get(key);
       if (!isPendingRating(results?.imdb) || imdbBrowseInFlightKeys.has(key)) continue;
 
       imdbBrowseInFlightKeys.add(key);
-      lookupIMDb({ title, year, mediaType })
+      lookupIMDb({ title, year, mediaType, contentId })
         .then((result) => {
           const current = browseResults.get(key);
           if (!current) return;
+          if (isMatchedRating(current.imdb)) return;
           current.imdb = result || { ok: false, reason: "imdb_data_missing" };
           renderBrowseTargets(key);
         })
@@ -702,8 +785,9 @@
   }
 
   function drainDoubanBrowseQueue() {
+    if (extensionContextInvalidated) return;
     while (doubanBrowseInFlightKeys.size < MAX_BROWSE_DOUBAN_LOOKUPS && doubanBrowseQueue.length) {
-      const { key, title, year, mediaType, background } = doubanBrowseQueue.shift();
+      const { key, title, year, mediaType, contentId, background } = doubanBrowseQueue.shift();
       queuedDoubanBrowseKeys.delete(key);
       const results = browseResults.get(key);
       if (!isPendingRating(results?.douban) || doubanBrowseInFlightKeys.has(key)) continue;
@@ -711,13 +795,14 @@
       doubanBrowseInFlightKeys.add(key);
       const lookup =
         background && isFullDoubanBrowseMode()
-          ? delay(FULL_BACKGROUND_DELAY_MS).then(() => lookupDouban({ title, year, mediaType }))
-          : lookupDouban({ title, year, mediaType });
+          ? delay(FULL_BACKGROUND_DELAY_MS).then(() => lookupDouban({ title, year, mediaType, contentId }))
+          : lookupDouban({ title, year, mediaType, contentId });
 
       lookup
         .then((result) => {
           const current = browseResults.get(key);
           if (!current) return;
+          if (isMatchedRating(current.douban)) return;
           current.douban = result || { ok: false, reason: "empty_response" };
           renderBrowseTargets(key);
         })
@@ -750,6 +835,7 @@
   );
 
   function scanBrowseCards() {
+    if (extensionContextInvalidated) return;
     for (const cardLink of document.querySelectorAll(getBrowseCardSelector())) {
       const details = getBrowseCardDetails(cardLink);
       if (!details) continue;
@@ -772,6 +858,7 @@
 
   async function refresh() {
     scheduled = false;
+    if (extensionContextInvalidated) return;
     const titleContext = isTitleContext();
     // A title detail view can itself contain recommendation rows. Keep
     // details-only behaviour focused on that single title.
@@ -785,22 +872,27 @@
     const title = getTitle();
     const year = getYear();
     const mediaType = getMediaType();
+    const contentId = getPlatformContentId(location.href);
     if (!title) return clearChip();
 
-    const requestKey = [location.href, title, year, mediaType].join(":");
+    const requestKey = [location.href, title, year, mediaType, contentId].join(":");
     if (requestKey === activeRequest && document.getElementById(CHIP_ID)) return;
     activeRequest = requestKey;
 
     try {
       const result = await lookupRatings(
-        { title, year, mediaType },
+        { title, year, mediaType, contentId },
         {
           onIMDbResult: (partialResults) => {
-            if (requestKey === activeRequest) renderRating(partialResults, title);
+            if (requestKey === activeRequest) {
+              reuseDetailResultsOnBrowseCards(contentId, partialResults);
+              renderRating(partialResults, title);
+            }
           }
         }
       );
       if (requestKey !== activeRequest) return;
+      reuseDetailResultsOnBrowseCards(contentId, result);
       renderRating(result, title);
     } catch (error) {
       console.debug("[DouRate] overlay unavailable", error);
@@ -815,7 +907,7 @@
   }
 
   function scheduleRefresh() {
-    if (scheduled) return;
+    if (extensionContextInvalidated || scheduled) return;
     scheduled = true;
     window.setTimeout(refresh, 250);
   }
@@ -827,8 +919,10 @@
     attributeFilter: ["href", "aria-label", "alt"]
   });
 
-  chrome.storage.local
-    .get(LOADING_MODE_STORAGE_KEY)
+  runExtensionCall(
+    () => chrome.storage.local.get(LOADING_MODE_STORAGE_KEY),
+    {}
+  )
     .then((settings) => {
       const savedMode = settings[LOADING_MODE_STORAGE_KEY];
       if (Object.values(LOADING_MODES).includes(savedMode)) loadingMode = savedMode;

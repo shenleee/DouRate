@@ -11,6 +11,10 @@ const helpers = context.globalThis.NetflixDouban;
 test("cleans common Netflix title wrappers", () => {
   assert.equal(helpers.cleanTitle("Watch Inception | Netflix"), "Inception");
   assert.equal(helpers.cleanTitle("The Glory - Netflix"), "The Glory");
+  assert.equal(
+    helpers.normalizedTitle("HUNTER×HUNTER"),
+    helpers.normalizedTitle("Hunter x Hunter")
+  );
 });
 
 test("chooses an exact title and year over a loosely related suggestion", () => {

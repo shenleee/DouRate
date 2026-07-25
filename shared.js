@@ -7,6 +7,7 @@
       .replace(/^Prime Video:\s*/i, "")
       .replace(/^Watch\s+/i, "")
       .replace(/\s*\([^)]*\)\s*$/i, "")
+      .replace(/[×✕]/g, " x ")
       .replace(/\s+/g, " ")
       .trim();
   }

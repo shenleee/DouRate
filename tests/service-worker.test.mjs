@@ -133,3 +133,47 @@ test("does not fetch IMDb pages before the user downloads the local ratings data
   assert.equal(result.reason, "imdb_data_missing");
   assert.equal(fetchCount, 0);
 });
+
+test("reuses a verified detail score for the same Netflix catalog id", async () => {
+  let fetchCount = 0;
+  const urls = [];
+  const worker = createWorker(async (url) => {
+    fetchCount += 1;
+    urls.push(String(url));
+    if (!/search\.douban\.com/.test(String(url))) {
+      throw new Error(`Unexpected URL: ${url}`);
+    }
+    return response(
+      200,
+      `window.__DATA__ = ${JSON.stringify({
+        items: [
+          {
+            tpl_name: "search_subject",
+            id: "123",
+            url: "https://movie.douban.com/subject/123/",
+            title: "Inception",
+            abstract: "2010 film",
+            labels: [],
+            rating: { value: "8.8" }
+          }
+        ]
+      })}; window.__USER__ = {};`
+    );
+  });
+
+  const detailResult = await worker.lookup({
+    title: "Inception",
+    year: "2010",
+    mediaType: "movie",
+    contentId: "netflix:999"
+  });
+  assert.equal(detailResult.score, "8.8", `${JSON.stringify(detailResult)} ${urls.join(", ")}`);
+  assert.equal(fetchCount, 1);
+
+  const cardResult = await worker.lookup({
+    title: "INCEPTION",
+    contentId: "netflix:999"
+  });
+  assert.equal(cardResult.score, "8.8");
+  assert.equal(fetchCount, 1);
+});
