@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DouRate</title>
     <style>
-      body { width: 292px; margin: 0; padding: 16px; color: #222; font: 14px/1.45 system-ui, sans-serif; }
+      body { width: 320px; margin: 0; padding: 16px; color: #222; font: 14px/1.45 system-ui, sans-serif; }
       h1 { margin: 0 0 8px; font-size: 16px; }
       p { margin: 0 0 10px; }
       .note { color: #5f6368; font-size: 12px; }
@@ -23,37 +23,58 @@
       .diagnostics p { margin-bottom: 6px; color: #4a4a4a; font-size: 12px; }
       .diagnostics.problem { border-color: #e3b5a3; background: #fff8f5; }
       .diagnostics a { color: #0b57d0; font-size: 12px; }
+      .imdb-data { background: #fffdf2; border-color: #e6d294; }
+      .imdb-data.problem { border-color: #e3b5a3; background: #fff8f5; }
+      .imdb-data p { margin-bottom: 8px; color: #4a4a4a; font-size: 12px; }
+      .imdb-actions { display: flex; gap: 8px; margin: 8px 0; }
+      button { border: 1px solid #b8b8b8; border-radius: 5px; padding: 5px 8px; background: #fff; color: #222; cursor: pointer; font: inherit; font-size: 12px; }
+      button.primary { border-color: #0b57d0; background: #0b57d0; color: #fff; }
+      button.danger { color: #b3261e; }
+      button:disabled { cursor: wait; opacity: 0.65; }
+      .imdb-attribution { color: #5f6368; font-size: 11px; line-height: 1.35; }
+      .imdb-data a { color: #0b57d0; font-size: 12px; }
     </style>
   </head>
   <body>
     <h1>DouRate</h1>
     <p id="version" class="version">版本 / Version</p>
-    <p>在 Netflix、Prime Video 或 Disney+ 的标题详情页和首页查看可用的豆瓣评分。</p>
+    <p>在 Netflix、Prime Video 或 Disney+ 的标题详情页和浏览卡片查看可用的豆瓣与 IMDb 评分。</p>
     <fieldset>
-      <legend>加载模式</legend>
+      <legend>豆瓣加载模式</legend>
       <label>
         <input type="radio" name="loading-mode" value="details" />
         <span class="option-title">仅详情页加载</span>
-        <span class="option-copy">默认且最保守：只在打开单个流媒体标题时查询评分。</span>
+        <span class="option-copy">只在打开单个流媒体标题时查询豆瓣评分。</span>
       </label>
       <label>
         <input type="radio" name="loading-mode" value="browse-visible" />
-        <span class="option-title">首页局部加载</span>
-        <span class="option-copy">只查询当前可见区域；滚动后再查询新出现的标题卡片。</span>
+        <span class="option-title">首页局部加载（默认）</span>
+        <span class="option-copy">只查询当前可见区域附近的豆瓣评分；滚动后再查询新出现的标题卡片。</span>
       </label>
       <label>
         <input type="radio" name="loading-mode" value="browse-full" />
         <span class="option-title">首页全自动加载</span>
-        <span class="option-copy warning">会查询整页已渲染卡片，屏幕外卡片以较慢固定节奏加载，仍可能触发平台保护机制。</span>
+        <span class="option-copy warning">会查询整页已渲染卡片，屏幕外卡片以较慢固定节奏处理；豆瓣直接查询仍可能触发平台保护机制。</span>
       </label>
+      <p class="option-copy">此设置只控制豆瓣的直接查询。已下载 IMDb 数据时，IMDb 会优先从本机索引读取，不受此设置限制。</p>
+    </fieldset>
+    <fieldset id="imdb-data-panel" class="imdb-data" aria-live="polite">
+      <legend>IMDb 本地数据 / IMDb Local Data</legend>
+      <p id="imdb-status">正在读取 IMDb 本地数据状态…</p>
+      <div class="imdb-actions">
+        <button id="imdb-download" class="primary" type="button">下载 IMDb 数据</button>
+        <button id="imdb-delete" class="danger" type="button" hidden>删除本地数据</button>
+      </div>
+      <p class="imdb-attribution">仅供个人且非商业本机使用。IMDb 数据不会自动下载、不会发送给开发者，也不会抓取 IMDb 网页。<br />Information courtesy of IMDb (https://www.imdb.com). Used with permission.</p>
+      <a href="https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX" target="_blank" rel="noopener noreferrer">IMDb 数据使用条件 / IMDb data terms</a>
     </fieldset>
     <p id="status" role="status" aria-live="polite"></p>
     <section id="diagnostics-panel" class="diagnostics" aria-live="polite">
-      <strong>查询状态</strong>
+      <strong>豆瓣查询状态</strong>
       <p id="diagnostics">正在读取最近状态…</p>
       <a id="open-douban" href="https://www.douban.com/" target="_blank" rel="noopener noreferrer">在同一浏览器打开豆瓣</a>
     </section>
-    <p class="note">设置保存后，请刷新当前流媒体页面才会生效。节流不能保证避免验证，也不会替代豆瓣授权。</p>
+    <p class="note">设置或 IMDb 数据状态变更后，请刷新当前流媒体页面才会生效。IMDb 数据仅在你点击下载或更新时访问官方数据集；IMDb 卡片评分会优先读取本机索引。豆瓣节流不能保证避免验证，也不会替代豆瓣授权。</p>
     <script src="popup.js"></script>
   </body>
 </html>

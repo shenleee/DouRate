@@ -72,15 +72,18 @@ function createWorker(fetchImpl) {
 
   return {
     storage,
-    lookup(payload) {
+    send(type, payload = {}) {
       return new Promise((resolve) => {
         const keepOpen = messageListener(
-          { type: "LOOKUP_DOUBAN_RATING", payload },
+          { type, payload },
           {},
           resolve
         );
         assert.equal(keepOpen, true);
       });
+    },
+    lookup(payload) {
+      return this.send("LOOKUP_DOUBAN_RATING", payload);
     }
   };
 }
@@ -115,4 +118,18 @@ test("records a changed search format separately from an unreliable title match"
 
   assert.equal(result.reason, "provider_format_changed");
   assert.equal(worker.storage.get("douRateDiagnostics").lastFailureReason, "provider_format_changed");
+});
+
+test("does not fetch IMDb pages before the user downloads the local ratings dataset", async () => {
+  let fetchCount = 0;
+  const worker = createWorker(async () => {
+    fetchCount += 1;
+    throw new Error("IMDb lookup must not fetch a page");
+  });
+
+  const result = await worker.send("LOOKUP_IMDB_RATING", { title: "Inception", year: "2010" });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "imdb_data_missing");
+  assert.equal(fetchCount, 0);
 });

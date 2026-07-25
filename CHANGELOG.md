@@ -4,6 +4,28 @@ This record starts with the initial internal prototype and lists every retained 
 
 本记录从最初的内部原型开始，并列出所有已保留的可安装包。未保留独立安装包的早期内部迭代会合并记录，不会虚构版本号。
 
+## v0.3.1 · 2026-07-25
+
+- “加载模式”更名为“豆瓣加载模式”，新安装默认“首页局部加载”；该设置只控制豆瓣直接查询。IMDb 已下载数据的浏览卡片会独立排队，优先显示可从本机索引读取的评分。
+  Renames “Loading mode” to “Douban loading mode”, defaults fresh installs to Browse: visible area, and limits the setting to direct Douban requests. Browse cards with downloaded IMDb data use an independent queue and prioritize scores available from the local index.
+- 将 IMDb 与豆瓣的加载链路拆分。IMDb 结果不再等待豆瓣请求完成才显示；屏幕外卡片的慢速策略继续只适用于豆瓣全自动模式。
+  Splits IMDb and Douban loading paths. IMDb results no longer wait for Douban before rendering; the slow off-screen-card strategy remains limited to Douban full-page mode.
+- 修复 IMDb 标题映射的缓存策略：成功 Wikidata 映射会在本机缓存 15 天，临时映射或存储失败不会被当作“无 IMDb ID”长期缓存，因此可在后续卡片或刷新时重试。
+  Fixes IMDb title-mapping cache behavior: successful Wikidata mappings are kept locally for 15 days, while transient mapping or storage failures are not retained as a permanent “no IMDb ID” state and can retry on a later card or refresh.
+- 浏览卡片中的豆瓣评分改为仅显示豆瓣图标和分数，移除重复的“豆”字。
+  Simplifies the Douban browse-card score to the Douban icon plus the score, removing the redundant “豆” label.
+
+## v0.3.0 · 2026-07-25
+
+- 新增 IMDb 评分：用户可主动下载 IMDb 官方 `title.ratings.tsv.gz`，并从本机浏览器索引读取评分和投票数；不会抓取 IMDb 网页、使用 IMDb 登录态或经由开发者后端。
+  Adds IMDb ratings from a user-initiated download of IMDb's official `title.ratings.tsv.gz`; ratings and vote counts are read from a local browser index with no IMDb-page scraping, IMDb session use, or developer backend.
+- 详情页和浏览卡片可并列显示豆瓣与 IMDb；仅一个来源成功时只显示该来源，两个来源均不可用时显示各自带原因提示的问号。
+  Shows Douban and IMDb side by side on title pages and browse cards; shows only the successful source when one works, or source-specific question marks when neither is available.
+- 工具栏弹窗新增“IMDb 本地数据”分区，支持手动下载、更新、状态查看与删除；IMDb 数据不会自动下载或更新。
+  Adds an IMDb Local Data popup section for manual download, update, status, and deletion; IMDb data is never downloaded or updated automatically.
+- 新增 `unlimitedStorage` 与 IMDb 数据集 host permission，以存储本地评分索引；同步更新中英文 README、安装说明与个人非商业用途边界。
+  Adds `unlimitedStorage` and the IMDb dataset host permission for the local ratings index; updates bilingual README, installation guidance, and the personal non-commercial-use boundary.
+
 ## v0.2.4 · 2026-07-24
 
 - 在工具栏弹窗中显示当前扩展版本号。  

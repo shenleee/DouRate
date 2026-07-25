@@ -55,3 +55,16 @@ test("extracts a valid public Douban score", () => {
 test("recognizes the anti-bot response without trying to solve it", () => {
   assert.equal(helpers.looksLikeDoubanChallenge('<form name="sec"><input id="tok">载入中 ...'), true);
 });
+
+test("parses a valid IMDb ratings dataset row", () => {
+  const row = helpers.parseIMDbRatingRow("tt1375666\t8.8\t2700000");
+  assert.equal(row.id, "tt1375666");
+  assert.equal(row.score, "8.8");
+  assert.equal(row.votes, 2700000);
+});
+
+test("rejects IMDb dataset rows with an invalid id, score, or vote count", () => {
+  assert.equal(helpers.parseIMDbRatingRow("titleId\taverageRating\tnumVotes"), null);
+  assert.equal(helpers.parseIMDbRatingRow("tt1375666\t11.1\t2700000"), null);
+  assert.equal(helpers.parseIMDbRatingRow("tt1375666\t8.8\t-3"), null);
+});

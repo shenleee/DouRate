@@ -1,8 +1,8 @@
 DouRate 安装说明 / Installation Guide
 ======================================
 
-版本 / Version: 0.2.4
-安装包 / Package: dourate-demo-0.2.4.zip
+版本 / Version: 0.3.1
+安装包 / Package: dourate-demo-0.3.1.zip
 
 中文
 ----
@@ -10,20 +10,32 @@ DouRate 安装说明 / Installation Guide
 1. 解压 ZIP 到任意本地文件夹。Chrome 不能直接安装 ZIP，必须选择解压后的文件夹。
 2. 在 Chrome 地址栏打开 `chrome://extensions`，打开右上角的“开发者模式”。
 3. 点击“加载已解压的扩展程序（Load unpacked）”，选择直接包含 `manifest.json` 的 DouRate 文件夹。
-4. 确认扩展名称为 DouRate、版本为 0.2.4；点击浏览器工具栏中的图标也可查看当前版本号。
-5. 打开或刷新 Netflix、Prime Video 或 Disney+：详情页会显示可匹配的评分；浏览卡片行为取决于工具栏菜单中的加载模式。
+4. 确认扩展名称为 DouRate、版本为 0.3.1；点击浏览器工具栏中的图标也可查看当前版本号。
+5. 打开或刷新 Netflix、Prime Video 或 Disney+：详情页和浏览卡片会按设置显示可用的豆瓣及 IMDb 评分。
 
-加载模式：
+豆瓣加载模式：
 
-- **仅详情页加载**：默认且最保守，只查询单个标题详情页。
-- **首页局部加载**：只查询当前可见区域附近的卡片；滚动后再查询新出现的卡片。
-- **首页全自动加载**：按展示顺序查询平台已经渲染的卡片；屏幕外卡片会延后开始查询。此模式仍可能触发平台保护机制。
+- **仅详情页加载**：只在单个标题详情页查询豆瓣评分。
+- **首页局部加载（默认）**：只查询当前可见区域附近的豆瓣评分；滚动后再查询新出现的卡片。
+- **首页全自动加载**：按展示顺序查询平台已经渲染的卡片；屏幕外卡片会延后开始处理。豆瓣的直接查询在此模式仍可能触发平台保护机制。
+
+以上设置**仅适用于豆瓣**。已下载 IMDb 数据后，IMDb 会独立处理浏览卡片，并优先从本机已缓存的标题 ID 与评分索引读取；首次从未见过的片名仍可能需要一次 Wikidata 消歧。
+
+IMDb 本地数据：
+
+1. 点击 DouRate 工具栏图标，在“IMDb 本地数据”分区点击“下载 IMDb 数据”。首次下载约 9 MB，并会在当前浏览器建立本地评分索引；请保持浏览器打开直到完成。
+2. 下载完成后，刷新流媒体页面。可可靠匹配的条目会并列显示 IMDb 与豆瓣评分；只有其中一个来源可用时只显示该来源。
+3. 数据不会自动更新。需要最新数据时，在同一分区点击“更新 IMDb 数据”。
+4. “删除本地数据”会移除当前浏览器的 IMDb 评分索引；刷新流媒体页面后将仅显示可用豆瓣评分。
+5. IMDb 数据仅供个人且非商业的本机使用。不要分享 IMDb 数据、索引或含数据的安装包；插件不会自动抓取 IMDb 网页。请阅读 [IMDb 数据使用条件](https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX)。
 
 更新方式：替换或打开新版解压文件夹后，回到 `chrome://extensions` 点击 DouRate 卡片上的“更新（Update）”，再刷新流媒体页面。
 
-速度与异常：单个详情页通常较快。Browse 页面会逐步显示评分。无法可靠匹配、没有评分、网络异常或页面格式异常时会显示问号；悬浮提示会说明原因，点击问号可自行在豆瓣搜索。检测到验证页、403 或 429 后，插件会暂停新的查询约 30 分钟；已缓存评分仍可显示。
+速度与异常：单个详情页通常较快。Browse 页面会优先显示可用 IMDb 评分，再逐步补充豆瓣评分。IMDb 数据下载完成后，评分从本机索引读取；首次片名消歧仍可能需要 Wikidata，成功映射会在本机缓存 15 天。无法可靠匹配、没有评分、网络异常、未下载 IMDb 数据或页面格式异常时会显示来源专属问号；悬浮提示会说明原因，点击问号可搜索对应来源。检测到豆瓣验证页、403 或 429 后，插件会暂停新的豆瓣查询约 30 分钟；已缓存评分仍可显示。
 
-隐私、用途与免责声明：DouRate 不会要求密码，也不会读取、保存或公开 Cookie 值；浏览器仅可能使用已有的正常豆瓣会话。仅供个人日常学习和交流使用，没有任何商业用途。请勿滥用，包括批量数据采集或其他不合理用途。用户应自行承担使用行为及其后果；开发者不对不合理使用造成的后果承担责任。使用 DouRate 不代表已获得豆瓣许可或授权。
+隐私、用途与免责声明：DouRate 不会要求密码，也不会读取、保存或公开 Cookie 值；浏览器仅可能使用已有的正常豆瓣会话。仅供个人日常学习和交流使用，没有任何商业用途。请勿滥用，包括批量数据采集或其他不合理用途。用户应自行承担使用行为及其后果；开发者不对不合理使用造成的后果承担责任。使用 DouRate 不代表已获得豆瓣或 IMDb 许可或授权。
+
+Information courtesy of IMDb (https://www.imdb.com). Used with permission.
 
 English
 -------
@@ -31,17 +43,29 @@ English
 1. Extract the ZIP file to any local folder. Chrome cannot install a ZIP directly; select the extracted folder instead.
 2. Open `chrome://extensions` in Chrome and enable Developer mode.
 3. Click Load unpacked and select the DouRate folder that directly contains `manifest.json`.
-4. Confirm the extension is named DouRate and is version 0.2.4. The toolbar popup also shows the current version.
-5. Open or refresh Netflix, Prime Video, or Disney+. A title page displays an available matched score; browse-card behaviour follows the loading mode in the toolbar popup.
+4. Confirm the extension is named DouRate and is version 0.3.1. The toolbar popup also shows the current version.
+5. Open or refresh Netflix, Prime Video, or Disney+. Title pages and browse cards show available Douban and IMDb ratings according to the selected mode.
 
-Loading modes:
+Douban loading modes:
 
-- **Details only**: the default and most conservative mode; looks up only an individual title page.
-- **Browse: visible area**: looks up cards near the current viewport, then newly visible cards after scrolling.
-- **Browse: full page**: looks up cards the platform has already rendered in display order; cards below the fold start later. This mode can still trigger platform protection mechanisms.
+- **Details only**: queries Douban only for an individual title page.
+- **Browse: visible area (default)**: queries Douban for cards near the current viewport, then newly visible cards after scrolling.
+- **Browse: full page**: queries the cards the platform has already rendered in display order; cards below the fold start later. Direct Douban requests can still trigger platform protection mechanisms in this mode.
+
+These settings apply **only to Douban**. Once IMDb data is downloaded, IMDb processes browse cards independently and prioritizes locally cached title IDs and the local rating index. A never-before-seen title can still require one Wikidata disambiguation request.
+
+IMDb local data:
+
+1. Click the DouRate toolbar icon. In **IMDb Local Data**, click **Download IMDb data**. The first download is about 9 MB and builds a local ratings index in this browser; keep the browser open until it finishes.
+2. Refresh the streaming page after the download. Reliably matched titles show IMDb and Douban side by side; when only one provider is available, only that one is shown.
+3. Data never updates automatically. Click **Update IMDb data** in the same section when you want a newer dataset.
+4. **Delete local data** removes the IMDb ratings index from this browser. Refresh the streaming page to return to available Douban ratings only.
+5. IMDb data is for personal, non-commercial local use only. Do not share IMDb data, an index, or an installation package containing the data. The extension does not automatically scrape IMDb pages. Read the [IMDb data terms](https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX).
 
 Updating: after replacing or opening the new extracted folder, return to `chrome://extensions`, click Update on the DouRate card, then refresh the streaming page.
 
-Speed and failures: an individual title page is normally quicker. Browse scores appear progressively. A question mark is shown for an unreliable match, missing score, temporary failure, or changed page format; its tooltip explains the reason and links to a manual Douban search. On a verification page, HTTP 403, or HTTP 429, DouRate pauses new direct lookups for about 30 minutes while cached ratings remain available.
+Speed and failures: an individual title page is normally quicker. Browse cards show available IMDb scores first, then progressively add Douban scores. Once IMDb data is downloaded, its score is read from the local index; first-time title disambiguation can still use Wikidata, and successful mappings are cached locally for 15 days. A provider-specific question mark appears for an unreliable match, missing score, temporary failure, changed page format, or missing IMDb dataset; its tooltip explains the reason and links to a search for that provider. On a Douban verification page, HTTP 403, or HTTP 429, DouRate pauses new Douban lookups for about 30 minutes while cached ratings remain available.
 
-Privacy, purpose, and disclaimer: DouRate never asks for a password and does not read, store, or expose cookie values; the browser may use an existing normal Douban session. It is provided solely for personal day-to-day learning and discussion, with no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban.
+Privacy, purpose, and disclaimer: DouRate never asks for a password and does not read, store, or expose cookie values; the browser may use an existing normal Douban session. It is provided solely for personal day-to-day learning and discussion, with no commercial purpose. Do not misuse it, including for bulk data collection or other unreasonable use. You are responsible for your own use; the developer accepts no responsibility for consequences caused by unreasonable use. Using DouRate does not grant any permission or authorization from Douban or IMDb.
+
+Information courtesy of IMDb (https://www.imdb.com). Used with permission.

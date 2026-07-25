@@ -10,22 +10,27 @@
     BROWSE_VISIBLE: "browse-visible",
     BROWSE_FULL: "browse-full"
   });
+  const DEFAULT_LOADING_MODE = LOADING_MODES.BROWSE_VISIBLE;
   const FULL_BACKGROUND_DELAY_MS = 8000;
-  // The direct-Douban prototype needs a gentle request cadence. The service
-  // worker additionally serializes subject-page fetches across the extension.
-  const MAX_BROWSE_LOOKUPS = 1;
+  // IMDb score reads are local after a title has been resolved, while Douban
+  // makes direct provider requests. Keep the latter deliberately serial.
+  const MAX_BROWSE_IMDB_LOOKUPS = 2;
+  const MAX_BROWSE_DOUBAN_LOOKUPS = 1;
   const platform = detectPlatform();
   if (!platform) return;
 
   let scheduled = false;
   let activeRequest = "";
-  let loadingMode = LOADING_MODES.DETAILS;
+  let loadingMode = DEFAULT_LOADING_MODE;
   // Streaming sites recycle card elements while rows refresh. Keep the
   // identity last seen for each element rather than marking it forever.
   const observedBrowseCards = new WeakMap();
-  const browseQueue = [];
-  const queuedBrowseKeys = new Set();
-  const browseInFlightKeys = new Set();
+  const imdbBrowseQueue = [];
+  const queuedIMDbBrowseKeys = new Set();
+  const imdbBrowseInFlightKeys = new Set();
+  const doubanBrowseQueue = [];
+  const queuedDoubanBrowseKeys = new Set();
+  const doubanBrowseInFlightKeys = new Set();
   const browseResults = new Map();
   const browseTargets = new Map();
 
@@ -37,11 +42,11 @@
     return "";
   }
 
-  function isBrowseMode() {
+  function shouldLookupDoubanOnBrowse() {
     return loadingMode !== LOADING_MODES.DETAILS;
   }
 
-  function isFullBrowseMode() {
+  function isFullDoubanBrowseMode() {
     return loadingMode === LOADING_MODES.BROWSE_FULL;
   }
 
@@ -193,13 +198,27 @@
     return icon;
   }
 
+  function createIMDbMark(className) {
+    const mark = document.createElement("span");
+    mark.className = className;
+    mark.textContent = "IMDb";
+    mark.setAttribute("aria-hidden", "true");
+    return mark;
+  }
+
   function doubanSearchUrl(title) {
     const url = new URL("https://search.douban.com/movie/subject_search");
     url.searchParams.set("search_text", title);
     return url.href;
   }
 
-  function failureTooltip(result, title) {
+  function imdbSearchUrl(title) {
+    const url = new URL("https://www.imdb.com/find/");
+    url.searchParams.set("q", title);
+    return url.href;
+  }
+
+  function doubanFailureTooltip(result, title) {
     const manualSearch = " — search " + title + " on Douban";
     switch (result?.reason) {
       case "no_match":
@@ -224,30 +243,120 @@
     }
   }
 
-  function renderRating(result, title) {
+  function imdbFailureTooltip(result, title) {
+    const manualSearch = " — search " + title + " on IMDb";
+    switch (result?.reason) {
+      case "imdb_data_missing":
+        return "IMDb local ratings data is not downloaded — open DouRate settings";
+      case "imdb_no_id":
+        return "No confident IMDb title ID" + manualSearch;
+      case "imdb_mapping_unavailable":
+        return "IMDb title mapping is temporarily unavailable — refresh to retry";
+      case "imdb_missing_score":
+        return "The IMDb dataset has no available score for this title" + manualSearch;
+      case "imdb_storage_unavailable":
+        return "IMDb local data cannot be read right now — open DouRate settings";
+      case "imdb_download_failed":
+        return "IMDb local data download did not complete — open DouRate settings";
+      case "missing_title":
+        return "The streaming page did not provide a usable title";
+      default:
+        return "Search " + title + " on IMDb";
+    }
+  }
+
+  function isMatchedRating(result) {
+    return Boolean(result?.ok && result.score);
+  }
+
+  function isPendingRating(result) {
+    return Boolean(result?.pending);
+  }
+
+  function isDisabledRating(result) {
+    return Boolean(result?.disabled);
+  }
+
+  function formatIMDbVotes(value) {
+    const votes = Number(value);
+    if (!Number.isFinite(votes) || votes < 0) return "";
+    return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(votes);
+  }
+
+  function createProviderLink(provider, result, title, { compact = false } = {}) {
+    const matched = isMatchedRating(result);
+    const link = document.createElement("a");
+    link.className = `dourate-provider dourate-provider-${provider}${compact ? " dourate-provider-compact" : ""}`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+
+    if (provider === "douban") {
+      link.href = matched ? result.sourceUrl : doubanSearchUrl(title);
+      link.append(createDoubanIcon(compact ? "dourate-card-icon" : "dourate-rating-icon"));
+      link.append(
+        document.createTextNode(
+          compact ? `${matched ? result.score : "?"}` : `豆瓣 ${matched ? result.score : "?"}/10`
+        )
+      );
+      link.title = matched
+        ? `${result.score}/10 from Douban — open ${result.matchedTitle || "title"}`
+        : doubanFailureTooltip(result, title);
+      link.setAttribute(
+        "aria-label",
+        matched ? `${result.score} out of 10 from Douban` : doubanFailureTooltip(result, title)
+      );
+      return link;
+    }
+
+    link.href = matched ? result.sourceUrl : imdbSearchUrl(title);
+    link.append(createIMDbMark(compact ? "dourate-card-imdb-mark" : "dourate-rating-imdb-mark"));
+    link.append(document.createTextNode(compact ? ` ${matched ? result.score : "?"}` : ` ${matched ? result.score : "?"}/10`));
+    const votes = formatIMDbVotes(result?.votes);
+    const updatedAt = Number(result?.updatedAt);
+    const date = Number.isFinite(updatedAt)
+      ? new Intl.DateTimeFormat("en", { year: "numeric", month: "short", day: "numeric" }).format(new Date(updatedAt))
+      : "";
+    link.title = matched
+      ? `${result.score}/10 from IMDb${votes ? ` · ${votes} ratings` : ""}${date ? ` · local data updated ${date}` : ""}`
+      : imdbFailureTooltip(result, title);
+    link.setAttribute(
+      "aria-label",
+      matched ? `${result.score} out of 10 from IMDb` : imdbFailureTooltip(result, title)
+    );
+    return link;
+  }
+
+  function visibleProviderResults(results) {
+    const providers = [
+      { provider: "douban", result: results?.douban || { ok: false, reason: "empty_response" } },
+      { provider: "imdb", result: results?.imdb || { ok: false, reason: "imdb_data_missing" } }
+    ].filter(({ result }) => !isDisabledRating(result));
+    const matched = providers.filter(({ result }) => isMatchedRating(result));
+    if (matched.length) return matched;
+    return providers.some(({ result }) => isPendingRating(result)) ? [] : providers;
+  }
+
+  function renderRating(results, title) {
     const insertionPoint = getInsertionPoint();
     if (!insertionPoint || !title) return clearChip();
 
-    const matched = Boolean(result?.ok && result.score);
-    const score = matched ? result.score : "?";
+    const providers = visibleProviderResults(results).filter(
+      ({ result }) => !isPendingRating(result)
+    );
+    if (!providers.length) return clearChip();
 
     let chip = document.getElementById(CHIP_ID);
     if (!chip) {
-      chip = document.createElement("a");
+      chip = document.createElement("div");
       chip.id = CHIP_ID;
-      chip.target = "_blank";
-      chip.rel = "noopener noreferrer";
+      chip.setAttribute("role", "group");
+      chip.setAttribute("aria-label", "DouRate ratings");
       insertionPoint.node.insertAdjacentElement(insertionPoint.position, chip);
     }
-    chip.href = matched ? result.sourceUrl : doubanSearchUrl(title);
     chip.replaceChildren();
-    chip.append(
-      createDoubanIcon("dourate-rating-icon"),
-      document.createTextNode(score + "/10 from Douban")
-    );
-    chip.title = matched
-      ? "Open " + (result.matchedTitle || "this title") + " on Douban"
-      : failureTooltip(result, title);
+    for (const entry of providers) {
+      chip.append(createProviderLink(entry.provider, entry.result, title));
+    }
   }
 
   function clearBrowseBadge(card) {
@@ -260,7 +369,7 @@
     }
   }
 
-  function renderBrowseBadge(card, result, cardIdentity) {
+  function renderBrowseBadge(card, results, cardIdentity) {
     if (
       !card.isConnected ||
       (cardIdentity && card.dataset.dourateCardIdentity !== cardIdentity)
@@ -268,36 +377,67 @@
       return;
     }
 
-    ensureCardPositioning(card);
     const title = card.dataset.dourateTitle || "this title";
-    const matched = Boolean(result?.ok && result.score);
-    const score = matched ? result.score : "?";
+    const providers = visibleProviderResults(results).filter(
+      ({ result }) => !isPendingRating(result)
+    );
+    if (!providers.length) return clearBrowseBadge(card);
+
+    ensureCardPositioning(card);
 
     let badge = card.querySelector("." + CARD_BADGE_CLASS);
     if (!badge) {
-      badge = document.createElement("a");
+      badge = document.createElement("div");
       badge.className = CARD_BADGE_CLASS;
-      badge.target = "_blank";
-      badge.rel = "noopener noreferrer";
+      badge.setAttribute("role", "group");
+      badge.setAttribute("aria-label", "DouRate ratings");
       card.append(badge);
     }
-    badge.href = matched ? result.sourceUrl : doubanSearchUrl(title);
-    badge.replaceChildren(
-      createDoubanIcon("dourate-card-icon"),
-      document.createTextNode(score)
-    );
-    badge.title = matched
-      ? score + "/10 from Douban — open " + (result.matchedTitle || "title")
-      : failureTooltip(result, title);
-    badge.setAttribute(
-      "aria-label",
-      matched ? score + " out of 10 from Douban" : failureTooltip(result, title)
-    );
+    badge.replaceChildren();
+    for (const entry of providers) {
+      badge.append(createProviderLink(entry.provider, entry.result, title, { compact: true }));
+    }
     badge.dataset.dourateCardIdentity = cardIdentity || "";
   }
 
   function lookupKey(title, year = "", mediaType = "") {
     return [NetflixDouban.normalizedTitle(title), year, mediaType].join(":");
+  }
+
+  function lookupIMDb(payload) {
+    return chrome.runtime
+      .sendMessage({ type: "LOOKUP_IMDB_RATING", payload })
+      .catch(() => ({ ok: false, reason: "imdb_storage_unavailable" }));
+  }
+
+  function lookupDouban(payload) {
+    return chrome.runtime
+      .sendMessage({ type: "LOOKUP_DOUBAN_RATING", payload })
+      .catch(() => ({ ok: false, reason: "network_error" }));
+  }
+
+  async function lookupRatings(payload, { includeDouban = true, onIMDbResult } = {}) {
+    const results = {
+      imdb: { pending: true },
+      douban: includeDouban ? { pending: true } : { disabled: true }
+    };
+
+    // Start IMDb first. A known title-ID mapping can then resolve directly
+    // against IndexedDB without waiting for the slower Douban request.
+    const imdbTask = lookupIMDb(payload).then((result) => {
+      results.imdb = result || { ok: false, reason: "imdb_data_missing" };
+      onIMDbResult?.(results);
+      return results.imdb;
+    });
+    const doubanTask = includeDouban
+      ? lookupDouban(payload).then((result) => {
+          results.douban = result || { ok: false, reason: "empty_response" };
+          return results.douban;
+        })
+      : Promise.resolve(results.douban);
+
+    await Promise.all([imdbTask, doubanTask]);
+    return results;
   }
 
   function getBrowseCardSelector() {
@@ -440,8 +580,47 @@
     };
   }
 
-  function queueBrowseCard(cardLink, { background = false } = {}) {
-    if (!isBrowseMode()) return;
+  function renderBrowseTargets(key) {
+    const results = browseResults.get(key);
+    if (!results) return;
+    for (const [card, identity] of browseTargets.get(key) || []) {
+      renderBrowseBadge(card, results, identity);
+    }
+  }
+
+  function getBrowseResults(key, { requestDouban = false } = {}) {
+    let results = browseResults.get(key);
+    if (!results) {
+      results = {
+        imdb: { pending: true },
+        douban: requestDouban ? { pending: true } : { disabled: true }
+      };
+      browseResults.set(key, results);
+    } else if (requestDouban && results.douban?.disabled) {
+      results.douban = { pending: true };
+    }
+    return results;
+  }
+
+  function queueIMDbBrowseLookup({ key, title, year, mediaType }) {
+    const results = browseResults.get(key);
+    if (!isPendingRating(results?.imdb)) return;
+    if (queuedIMDbBrowseKeys.has(key) || imdbBrowseInFlightKeys.has(key)) return;
+    queuedIMDbBrowseKeys.add(key);
+    imdbBrowseQueue.push({ key, title, year, mediaType });
+    drainIMDbBrowseQueue();
+  }
+
+  function queueDoubanBrowseLookup({ key, title, year, mediaType, background }) {
+    const results = browseResults.get(key);
+    if (!isPendingRating(results?.douban)) return;
+    if (queuedDoubanBrowseKeys.has(key) || doubanBrowseInFlightKeys.has(key)) return;
+    queuedDoubanBrowseKeys.add(key);
+    doubanBrowseQueue.push({ key, title, year, mediaType, background });
+    drainDoubanBrowseQueue();
+  }
+
+  function queueBrowseCard(cardLink, { requestDouban = false, background = false } = {}) {
     const details = getBrowseCardDetails(cardLink);
     if (!details) return;
 
@@ -452,63 +631,77 @@
       clearBrowseBadge(card);
     }
 
-    if (browseResults.has(key)) {
-      renderBrowseBadge(card, browseResults.get(key), identity);
-      return;
-    }
-
     if (!browseTargets.has(key)) browseTargets.set(key, new Map());
     browseTargets.get(key).set(card, identity);
-    if (queuedBrowseKeys.has(key) || browseInFlightKeys.has(key)) return;
+    const results = getBrowseResults(key, { requestDouban });
+    renderBrowseBadge(card, results, identity);
 
-    queuedBrowseKeys.add(key);
-    // The page has a finite set of rendered rows. Keep DOM order so loading
-    // and badges appear in the same intuitive sequence.
-    browseQueue.push({ key, title, year, mediaType, background });
-    drainBrowseQueue();
+    // IMDb requests are scheduled for all rendered browse cards, regardless
+    // of the Douban mode. Once title-ID mapping is cached, score reads are
+    // local IndexedDB lookups and display independently.
+    queueIMDbBrowseLookup({ key, title, year, mediaType });
+    if (requestDouban) queueDoubanBrowseLookup({ key, title, year, mediaType, background });
   }
 
-  function drainBrowseQueue() {
-    while (browseInFlightKeys.size < MAX_BROWSE_LOOKUPS && browseQueue.length) {
-      const { key, title, year, mediaType, background } = browseQueue.shift();
-      queuedBrowseKeys.delete(key);
-      if (browseResults.has(key) || browseInFlightKeys.has(key)) continue;
+  function drainIMDbBrowseQueue() {
+    while (imdbBrowseInFlightKeys.size < MAX_BROWSE_IMDB_LOOKUPS && imdbBrowseQueue.length) {
+      const { key, title, year, mediaType } = imdbBrowseQueue.shift();
+      queuedIMDbBrowseKeys.delete(key);
+      const results = browseResults.get(key);
+      if (!isPendingRating(results?.imdb) || imdbBrowseInFlightKeys.has(key)) continue;
 
-      browseInFlightKeys.add(key);
+      imdbBrowseInFlightKeys.add(key);
+      lookupIMDb({ title, year, mediaType })
+        .then((result) => {
+          const current = browseResults.get(key);
+          if (!current) return;
+          current.imdb = result || { ok: false, reason: "imdb_data_missing" };
+          renderBrowseTargets(key);
+        })
+        .catch((error) => {
+          console.debug("[DouRate] IMDb browse lookup unavailable", error);
+          const current = browseResults.get(key);
+          if (!current) return;
+          current.imdb = { ok: false, reason: "imdb_storage_unavailable" };
+          renderBrowseTargets(key);
+        })
+        .finally(() => {
+          imdbBrowseInFlightKeys.delete(key);
+          drainIMDbBrowseQueue();
+        });
+    }
+  }
+
+  function drainDoubanBrowseQueue() {
+    while (doubanBrowseInFlightKeys.size < MAX_BROWSE_DOUBAN_LOOKUPS && doubanBrowseQueue.length) {
+      const { key, title, year, mediaType, background } = doubanBrowseQueue.shift();
+      queuedDoubanBrowseKeys.delete(key);
+      const results = browseResults.get(key);
+      if (!isPendingRating(results?.douban) || doubanBrowseInFlightKeys.has(key)) continue;
+
+      doubanBrowseInFlightKeys.add(key);
       const lookup =
-        background && isFullBrowseMode()
-          ? delay(FULL_BACKGROUND_DELAY_MS).then(() =>
-              chrome.runtime.sendMessage({
-                type: "LOOKUP_DOUBAN_RATING",
-                payload: { title, year, mediaType }
-              })
-            )
-          : chrome.runtime.sendMessage({
-              type: "LOOKUP_DOUBAN_RATING",
-              payload: { title, year, mediaType }
-            });
+        background && isFullDoubanBrowseMode()
+          ? delay(FULL_BACKGROUND_DELAY_MS).then(() => lookupDouban({ title, year, mediaType }))
+          : lookupDouban({ title, year, mediaType });
 
       lookup
         .then((result) => {
-          const resolvedResult = result || { ok: false, reason: "empty_response" };
-          browseResults.set(key, resolvedResult);
-          for (const [card, identity] of browseTargets.get(key) || []) {
-            renderBrowseBadge(card, resolvedResult, identity);
-          }
-          browseTargets.delete(key);
+          const current = browseResults.get(key);
+          if (!current) return;
+          current.douban = result || { ok: false, reason: "empty_response" };
+          renderBrowseTargets(key);
         })
         .catch((error) => {
-          console.debug("[DouRate] browse lookup unavailable", error);
-          const failedResult = { ok: false, reason: "network_error" };
-          browseResults.set(key, failedResult);
-          for (const [card, identity] of browseTargets.get(key) || []) {
-            renderBrowseBadge(card, failedResult, identity);
-          }
-          browseTargets.delete(key);
+          console.debug("[DouRate] Douban browse lookup unavailable", error);
+          const current = browseResults.get(key);
+          if (!current) return;
+          current.douban = { ok: false, reason: "network_error" };
+          renderBrowseTargets(key);
         })
         .finally(() => {
-          browseInFlightKeys.delete(key);
-          drainBrowseQueue();
+          doubanBrowseInFlightKeys.delete(key);
+          drainDoubanBrowseQueue();
         });
     }
   }
@@ -516,7 +709,12 @@
   const browseCardObserver = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) queueBrowseCard(entry.target, { background: false });
+        if (entry.isIntersecting) {
+          queueBrowseCard(entry.target, {
+            requestDouban: shouldLookupDoubanOnBrowse(),
+            background: false
+          });
+        }
       }
     },
     { rootMargin: "120px 0px", threshold: 0.05 }
@@ -533,11 +731,13 @@
       // covers the changed title and URL.
       browseCardObserver.unobserve(cardLink);
       browseCardObserver.observe(cardLink);
-      if (isFullBrowseMode()) {
-        queueBrowseCard(cardLink, { background: !isCardNearViewport(cardLink) });
-      } else if (isCardNearViewport(cardLink)) {
-        queueBrowseCard(cardLink, { background: false });
-      }
+      const nearViewport = isCardNearViewport(cardLink);
+      const requestDouban = isFullDoubanBrowseMode() ||
+        (shouldLookupDoubanOnBrowse() && nearViewport);
+      queueBrowseCard(cardLink, {
+        requestDouban,
+        background: isFullDoubanBrowseMode() && !nearViewport
+      });
     }
   }
 
@@ -546,7 +746,7 @@
     const titleContext = isTitleContext();
     // A title detail view can itself contain recommendation rows. Keep
     // details-only behaviour focused on that single title.
-    if (isBrowseMode() && !titleContext) scanBrowseCards();
+    if (!titleContext) scanBrowseCards();
     if (!titleContext) {
       activeRequest = "";
       clearChip();
@@ -563,15 +763,25 @@
     activeRequest = requestKey;
 
     try {
-      const result = await chrome.runtime.sendMessage({
-        type: "LOOKUP_DOUBAN_RATING",
-        payload: { title, year, mediaType }
-      });
+      const result = await lookupRatings(
+        { title, year, mediaType },
+        {
+          onIMDbResult: (partialResults) => {
+            if (requestKey === activeRequest) renderRating(partialResults, title);
+          }
+        }
+      );
       if (requestKey !== activeRequest) return;
       renderRating(result, title);
     } catch (error) {
       console.debug("[DouRate] overlay unavailable", error);
-      renderRating({ ok: false, reason: "network_error" }, title);
+      renderRating(
+        {
+          douban: { ok: false, reason: "network_error" },
+          imdb: { ok: false, reason: "imdb_storage_unavailable" }
+        },
+        title
+      );
     }
   }
 

@@ -84,12 +84,23 @@
     return /name=["']sec["']|id=["']tok["']|载入中\s*\.\.\./i.test(String(html || ""));
   }
 
+  function parseIMDbRatingRow(line) {
+    const [id, scoreText, votesText] = String(line || "").trim().split("\t");
+    const score = Number(scoreText);
+    const votes = Number(votesText);
+    if (!/^tt\d{5,}$/i.test(id || "")) return null;
+    if (!Number.isFinite(score) || score <= 0 || score > 10) return null;
+    if (!Number.isSafeInteger(votes) || votes < 0) return null;
+    return { id, score: score.toFixed(1), votes };
+  }
+
   globalScope.NetflixDouban = {
     cleanTitle,
     normalizedTitle,
     parseYear,
     pickSuggestion,
     extractDoubanRating,
-    looksLikeDoubanChallenge
+    looksLikeDoubanChallenge,
+    parseIMDbRatingRow
   };
 })(globalThis);
