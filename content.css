@@ -29,8 +29,8 @@
   border-left: 1px solid rgba(255, 255, 255, 0.38);
 }
 
-.dourate-provider:hover,
-.dourate-provider:focus-visible {
+#dourate-rating-chip a.dourate-provider:hover,
+#dourate-rating-chip a.dourate-provider:focus-visible {
   color: #fff;
   text-decoration: underline;
   outline: none;

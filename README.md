@@ -14,6 +14,7 @@ DouRate 会在 Netflix、Prime Video 和 Disney+ 的标题详情页，以及可�
 - IMDb 评分来自用户在工具栏弹窗中**主动下载**的官方 `title.ratings.tsv.gz` 数据集。评分索引仅保存在当前浏览器的本机 IndexedDB；不会自动下载、同步、上传给开发者或抓取 IMDb 网页。
 - 下载完成后，DouRate 使用 Wikidata 的 IMDb ID 消歧后从本地索引读取 IMDb 评分与投票数。没有可靠 IMDb ID 或数据集中没有评分时不会猜测。
 - 弹窗可选择**豆瓣加载模式**、查看豆瓣查询状态，以及下载、手动更新或删除 IMDb 本地数据。新安装默认“首页局部加载”；该模式只控制豆瓣的直接查询。IMDb 会优先使用已缓存的标题 ID 和本机评分索引，不受豆瓣模式限制。
+- 升级时应保留原扩展并在同一个已加载文件夹点击 Chrome 的“更新（Update）”，这样可保留本机缓存和 IMDb 索引；移除/卸载扩展会清除这些数据。
 
 ### IMDb 数据边界
 
@@ -39,6 +40,7 @@ DouRate displays available Douban and IMDb ratings on Netflix, Prime Video, and 
 - IMDb ratings come from the official `title.ratings.tsv.gz` dataset that the user explicitly downloads from the toolbar popup. The parsed index stays only in this browser's local IndexedDB; it is not downloaded automatically, synced, sent to a developer service, or obtained by scraping IMDb pages.
 - After Wikidata resolves a reliable IMDb ID, DouRate reads the IMDb rating and vote count from the local index. It does not guess when the ID or rating is unavailable.
 - The popup provides **Douban loading-mode** controls, Douban diagnostics, and IMDb download, manual update, and deletion controls. Fresh installs default to Browse: visible area; that mode controls only direct Douban requests. IMDb prioritizes cached title IDs and the local rating index independently of the Douban mode.
+- To preserve local caches and the IMDb index during an upgrade, keep the existing extension installed and use Chrome’s Update button on the same loaded folder. Removing/uninstalling the extension clears this data.
 
 ### IMDb data boundary
 

@@ -29,7 +29,7 @@ IMDb 本地数据：
 4. “删除本地数据”会移除当前浏览器的 IMDb 评分索引；刷新流媒体页面后将仅显示可用豆瓣评分。
 5. IMDb 数据仅供个人且非商业的本机使用。不要分享 IMDb 数据、索引或含数据的安装包；插件不会自动抓取 IMDb 网页。请阅读 [IMDb 数据使用条件](https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX)。
 
-更新方式：替换或打开新版解压文件夹后，回到 `chrome://extensions` 点击 DouRate 卡片上的“更新（Update）”，再刷新流媒体页面。
+更新方式：**不要卸载旧扩展。** 请将新版文件替换到当前已加载的同一个解压文件夹，再回到 `chrome://extensions` 点击 DouRate 卡片上的“更新（Update）”，然后刷新流媒体页面。这样会保留本机设置、豆瓣缓存、IMDb 标题映射与已下载的 IMDb 评分索引。Chrome 在“移除/卸载扩展”时会删除扩展数据；卸载后再从新文件夹“加载已解压的扩展程序”无法可靠恢复这些数据，届时需要重新下载 IMDb 数据。
 
 速度与异常：单个详情页通常较快。Browse 页面会优先显示可用 IMDb 评分，再逐步补充豆瓣评分。IMDb 数据下载完成后，评分从本机索引读取；首次片名消歧仍可能需要 Wikidata，成功映射会在本机缓存 15 天。无法可靠匹配、没有评分、网络异常、未下载 IMDb 数据或页面格式异常时会显示来源专属问号；悬浮提示会说明原因，点击问号可搜索对应来源。检测到豆瓣验证页、403 或 429 后，插件会暂停新的豆瓣查询约 30 分钟；已缓存评分仍可显示。
 
@@ -62,7 +62,7 @@ IMDb local data:
 4. **Delete local data** removes the IMDb ratings index from this browser. Refresh the streaming page to return to available Douban ratings only.
 5. IMDb data is for personal, non-commercial local use only. Do not share IMDb data, an index, or an installation package containing the data. The extension does not automatically scrape IMDb pages. Read the [IMDb data terms](https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX).
 
-Updating: after replacing or opening the new extracted folder, return to `chrome://extensions`, click Update on the DouRate card, then refresh the streaming page.
+Updating: **do not remove the old extension.** Replace the files in the same extracted folder that Chrome already loads, then return to `chrome://extensions`, click Update on the DouRate card, and refresh the streaming page. This preserves local settings, the Douban cache, IMDb title mappings, and the downloaded IMDb ratings index. Chrome removes extension data when an extension is removed/uninstalled; loading a new extracted folder after removal cannot reliably restore it, so IMDb data must be downloaded again.
 
 Speed and failures: an individual title page is normally quicker. Browse cards show available IMDb scores first, then progressively add Douban scores. Once IMDb data is downloaded, its score is read from the local index; first-time title disambiguation can still use Wikidata, and successful mappings are cached locally for 15 days. A provider-specific question mark appears for an unreliable match, missing score, temporary failure, changed page format, or missing IMDb dataset; its tooltip explains the reason and links to a search for that provider. On a Douban verification page, HTTP 403, or HTTP 429, DouRate pauses new Douban lookups for about 30 minutes while cached ratings remain available.
 

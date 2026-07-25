@@ -285,45 +285,51 @@
 
   function createProviderLink(provider, result, title, { compact = false } = {}) {
     const matched = isMatchedRating(result);
-    const link = document.createElement("a");
-    link.className = `dourate-provider dourate-provider-${provider}${compact ? " dourate-provider-compact" : ""}`;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
+    // Streaming platforms often replace a browse card as soon as it receives
+    // pointer focus, which makes card-level rating links impossible to click.
+    // Keep links on title-detail overlays, but render browse-card scores as
+    // inert text so they never compete with the platform's hover interaction.
+    const providerElement = document.createElement(compact ? "span" : "a");
+    providerElement.className = `dourate-provider dourate-provider-${provider}${compact ? " dourate-provider-compact" : ""}`;
+    if (!compact) {
+      providerElement.target = "_blank";
+      providerElement.rel = "noopener noreferrer";
+    }
 
     if (provider === "douban") {
-      link.href = matched ? result.sourceUrl : doubanSearchUrl(title);
-      link.append(createDoubanIcon(compact ? "dourate-card-icon" : "dourate-rating-icon"));
-      link.append(
+      if (!compact) providerElement.href = matched ? result.sourceUrl : doubanSearchUrl(title);
+      providerElement.append(createDoubanIcon(compact ? "dourate-card-icon" : "dourate-rating-icon"));
+      providerElement.append(
         document.createTextNode(
           compact ? `${matched ? result.score : "?"}` : `豆瓣 ${matched ? result.score : "?"}/10`
         )
       );
-      link.title = matched
+      providerElement.title = matched
         ? `${result.score}/10 from Douban — open ${result.matchedTitle || "title"}`
         : doubanFailureTooltip(result, title);
-      link.setAttribute(
+      providerElement.setAttribute(
         "aria-label",
         matched ? `${result.score} out of 10 from Douban` : doubanFailureTooltip(result, title)
       );
-      return link;
+      return providerElement;
     }
 
-    link.href = matched ? result.sourceUrl : imdbSearchUrl(title);
-    link.append(createIMDbMark(compact ? "dourate-card-imdb-mark" : "dourate-rating-imdb-mark"));
-    link.append(document.createTextNode(compact ? ` ${matched ? result.score : "?"}` : ` ${matched ? result.score : "?"}/10`));
+    if (!compact) providerElement.href = matched ? result.sourceUrl : imdbSearchUrl(title);
+    providerElement.append(createIMDbMark(compact ? "dourate-card-imdb-mark" : "dourate-rating-imdb-mark"));
+    providerElement.append(document.createTextNode(compact ? ` ${matched ? result.score : "?"}` : ` ${matched ? result.score : "?"}/10`));
     const votes = formatIMDbVotes(result?.votes);
     const updatedAt = Number(result?.updatedAt);
     const date = Number.isFinite(updatedAt)
       ? new Intl.DateTimeFormat("en", { year: "numeric", month: "short", day: "numeric" }).format(new Date(updatedAt))
       : "";
-    link.title = matched
+    providerElement.title = matched
       ? `${result.score}/10 from IMDb${votes ? ` · ${votes} ratings` : ""}${date ? ` · local data updated ${date}` : ""}`
       : imdbFailureTooltip(result, title);
-    link.setAttribute(
+    providerElement.setAttribute(
       "aria-label",
       matched ? `${result.score} out of 10 from IMDb` : imdbFailureTooltip(result, title)
     );
-    return link;
+    return providerElement;
   }
 
   function visibleProviderResults(results) {

@@ -14,6 +14,8 @@ This record starts with the initial internal prototype and lists every retained 
   Fixes IMDb title-mapping cache behavior: successful Wikidata mappings are kept locally for 15 days, while transient mapping or storage failures are not retained as a permanent “no IMDb ID” state and can retry on a later card or refresh.
 - 浏览卡片中的豆瓣评分改为仅显示豆瓣图标和分数，移除重复的“豆”字。
   Simplifies the Douban browse-card score to the Douban icon plus the score, removing the redundant “豆” label.
+- 浏览卡片评分改为不可点击，避免 Netflix 等平台的悬浮放大交互吞掉评分链接；详情页评分仍可点击。安装说明同步明确：在同一已加载文件夹点击 Update 可保留本机缓存与 IMDb 索引，卸载则会清除它们。
+  Makes browse-card scores non-clickable so platform hover expansion does not swallow a rating link; title-page ratings remain clickable. Installation guidance now clarifies that updating the same loaded folder preserves local caches and the IMDb index, while uninstalling clears them.
 
 ## v0.3.0 · 2026-07-25
 
