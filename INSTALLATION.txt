@@ -24,7 +24,7 @@ DouRate 安装与更新 / Installation & Update
 
 **不要卸载旧扩展。** 将新版文件替换到同一个已加载文件夹，在 `chrome://extensions` 点击 DouRate 卡片的“更新（Update）”，然后刷新流媒体页面。这样会保留设置、评分缓存、IMDb 标题映射和已下载的 IMDb 索引。移除／卸载扩展会删除这些本机数据。
 
-完整的加载模式、IMDb 数据管理、限制、FAQ、故障排查、隐私及数据来源请阅读 [DouRate Wiki](https://github.com/shenleee/DouRate/wiki)。
+完整的加载模式、IMDb 数据管理、限制、FAQ 和故障排查请阅读 [DouRate Wiki](https://github.com/shenleee/DouRate/wiki)；隐私政策见 [PRIVACY.md](PRIVACY.md)。
 
 English
 -------
@@ -46,4 +46,4 @@ English
 
 **Do not remove the old extension.** Replace files in the same extracted folder that Chrome already loads, click **Update** on the DouRate card at `chrome://extensions`, then refresh the streaming page. This preserves settings, rating caches, IMDb title mappings, and the downloaded IMDb index. Removing/uninstalling the extension deletes that local data.
 
-Read the [DouRate Wiki](https://github.com/shenleee/DouRate/wiki) for loading modes, IMDb-data management, limits, FAQ, troubleshooting, privacy, and data sources.
+Read the [DouRate Wiki](https://github.com/shenleee/DouRate/wiki) for loading modes, IMDb-data management, limits, FAQ, and troubleshooting. See [PRIVACY.md](PRIVACY.md) for the privacy policy.

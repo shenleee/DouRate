@@ -16,6 +16,7 @@ DouRate 在 Netflix、Prime Video 和 Disney+ 的标题详情页及支持的浏�
 ### 文档
 
 - [安装与更新 / INSTALLATION.txt](INSTALLATION.txt)
+- [隐私政策 / PRIVACY.md](PRIVACY.md)
 - [版本记录 / CHANGELOG.md](CHANGELOG.md)
 - [完整用户文档 / Wiki](https://github.com/shenleee/DouRate/wiki)：产品概览、工作方式与限制、支持平台、FAQ、故障排查、隐私与数据来源。
 
@@ -37,6 +38,7 @@ DouRate shows available Douban and IMDb ratings on title pages and supported bro
 ### Documentation
 
 - [Installation and updates / INSTALLATION.txt](INSTALLATION.txt)
+- [Privacy policy / PRIVACY.md](PRIVACY.md)
 - [Version history / CHANGELOG.md](CHANGELOG.md)
 - [Full user documentation / Wiki](https://github.com/shenleee/DouRate/wiki): overview, behaviour and limits, supported platforms, FAQ, troubleshooting, privacy, and data sources.
 
