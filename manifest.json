@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DouRate",
   "version": "0.3.1",
-  "description": "Personal local prototype: shows available Douban and locally downloaded IMDb ratings on Netflix, Prime Video, and Disney+.",
+  "description": "Shows available Douban and locally downloaded IMDb ratings on Netflix, Prime Video, and Disney+.",
   "icons": {
     "16": "assets/icons/dourate-16.png",
     "32": "assets/icons/dourate-32.png",

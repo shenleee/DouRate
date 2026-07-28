@@ -2,9 +2,9 @@
 
 **Last updated / 最后更新：2026-07-26**
 
-This Privacy Policy describes how the DouRate Chrome extension handles information. DouRate is a personal, local prototype. It does not operate a developer-owned backend, account system, analytics service, advertising system, or remote rating database.
+This Privacy Policy describes how the DouRate Chrome extension handles information. DouRate does not operate a developer-owned backend, account system, analytics service, advertising system, or remote rating database.
 
-本隐私政策说明 DouRate Chrome 插件如何处理信息。DouRate 是个人本地原型，不运行开发者自有后端、账号系统、分析服务、广告系统或远程评分数据库。
+本隐私政策说明 DouRate Chrome 插件如何处理信息。DouRate 不运行开发者自有后端、账号系统、分析服务、广告系统或远程评分数据库。
 
 ## 1. What DouRate does / 插件用途
 
@@ -64,9 +64,9 @@ DouRate 不会把评分数据发送到开发者服务器。网络服务商及上
 
 ## 5. IMDb data restrictions / IMDb 数据限制
 
-IMDb data is available in this prototype only through a user-initiated download of IMDb's official non-commercial dataset. The IMDb feature is intended for personal, non-commercial, local use. Do not redistribute the IMDb dataset, the parsed index, or an installation package containing that data. Do not use the feature as a public or commercial data service without the appropriate permission from IMDb.
+IMDb data in this extension is available only through a user-initiated download of IMDb's official non-commercial dataset. IMDb's dataset terms limit this feature to non-commercial use on the user's own device. Do not redistribute the IMDb dataset, the parsed index, or an installation package containing that data. Do not use the feature as a public or commercial data service without the appropriate permission from IMDb.
 
-本原型中的 IMDb 数据仅通过用户主动下载 IMDb 官方非商业数据集获得。IMDb 功能仅用于个人、非商业、本地使用。请勿再分发 IMDb 数据集、解析后的索引或包含该数据的安装包；如需公开或商业化使用，请先取得 IMDb 的相应许可。
+本扩展中的 IMDb 数据仅通过用户主动下载 IMDb 官方非商业数据集获得。IMDb 数据集条款将此功能限制为非商业、仅供用户本人设备使用。请勿再分发 IMDb 数据集、解析后的索引或包含该数据的安装包；如需公开或商业化使用，请先取得 IMDb 的相应许可。
 
 Information courtesy of IMDb (https://www.imdb.com). Used with permission.
 
@@ -84,9 +84,9 @@ DouRate 不面向儿童，也不会明知地收集儿童个人信息。
 
 ## 8. Changes and contact / 政策变更与联系
 
-This policy may be updated when the extension's data flows or features change. The effective date is shown at the top of this document. For questions about this policy or the local prototype, open an issue in the repository:
+This policy may be updated when the extension's data flows or features change. The effective date is shown at the top of this document. For questions about this policy or the extension, open an issue in the repository:
 
-本政策可能会在插件的数据流或功能发生变化时更新，生效日期见文档顶部。如对本政策或本地原型有疑问，请在仓库中提交 Issue：
+本政策可能会在插件的数据流或功能发生变化时更新，生效日期见文档顶部。如对本政策或插件有疑问，请在仓库中提交 Issue：
 
 https://github.com/shenleee/DouRate/issues
 

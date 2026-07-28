@@ -549,7 +549,7 @@ async function deleteIMDbDataset() {
 async function fetchJson(url) {
   const response = await fetchDoubanAtConservativeRate(url, {
     // Douban sends anonymous automated requests to its security page. The
-    // local prototype deliberately uses the user's existing Douban session;
+    // The extension deliberately uses the user's existing Douban session;
     // cookie values are neither read nor stored by the extension.
     credentials: "include",
     headers: { Accept: "application/json" }
@@ -737,7 +737,7 @@ async function getCanonicalDoubanTitle(title, year, mediaType) {
 
 async function fetchSubjectPage(url) {
   const response = await fetchDoubanAtConservativeRate(url, {
-    // The local prototype may use an existing Douban browser session. It never
+    // The extension may use an existing Douban browser session. It never
     // reads cookie values and only requests the selected public title page.
     credentials: "include",
     headers: { Accept: "text/html,application/xhtml+xml" }

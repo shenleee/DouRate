@@ -1,6 +1,6 @@
 # DouRate
 
-Chrome Manifest V3 · v0.3.1 · personal, local prototype
+Chrome Manifest V3 · v0.3.1
 
 ## 中文
 
@@ -22,7 +22,7 @@ DouRate 在 Netflix、Prime Video 和 Disney+ 的标题详情页及支持的浏�
 
 ### 项目边界
 
-仅供个人、非商业、本机使用。豆瓣查询由用户浏览器直接发起；IMDb 数据只在用户主动下载后保存在该浏览器本地。请勿批量采集、共享 IMDb 数据或将其用于公开／商业服务。详情见 [Wiki 的隐私与数据来源说明](https://github.com/shenleee/DouRate/wiki/Privacy-and-Data-Sources)。
+插件在用户浏览器中运行，不提供开发者后端。豆瓣查询由用户浏览器直接发起；IMDb 数据只在用户主动下载后保存在该浏览器本地。请勿批量采集、共享 IMDb 数据或将其用于公开／商业服务。详情见 [Wiki 的隐私与数据来源说明](https://github.com/shenleee/DouRate/wiki/Privacy-and-Data-Sources)。
 
 ## English
 
@@ -44,4 +44,4 @@ DouRate shows available Douban and IMDb ratings on title pages and supported bro
 
 ### Project boundary
 
-For personal, non-commercial, local use only. Douban requests are made directly by the user’s browser; IMDb data stays in that browser only after the user explicitly downloads it. Do not bulk-collect, redistribute IMDb data, or use it in a public/commercial service. See the [Privacy & Data Sources wiki page](https://github.com/shenleee/DouRate/wiki/Privacy-and-Data-Sources).
+The extension runs in the user’s browser and has no developer backend. Douban requests are made directly by the user’s browser; IMDb data stays in that browser only after the user explicitly downloads it. Do not bulk-collect, redistribute IMDb data, or use it in a public/commercial service. See the [Privacy & Data Sources wiki page](https://github.com/shenleee/DouRate/wiki/Privacy-and-Data-Sources).
