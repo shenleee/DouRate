@@ -1,6 +1,6 @@
 # DouRate Privacy Policy / DouRate 隐私政策
 
-**Last updated / 最后更新：2026-07-26**
+**Last updated / 最后更新：2026-07-30**
 
 This Privacy Policy describes how the DouRate Chrome extension handles information. DouRate does not operate a developer-owned backend, account system, analytics service, advertising system, or remote rating database.
 
@@ -19,14 +19,14 @@ DouRate may process the following information locally or while making a user-req
 - The title name, year, media type, and platform content identifier exposed by the streaming page, used to match a work.
 - A matched Douban score, IMDb score, source link, match metadata, and lookup status.
 - Local settings such as the selected Douban loading mode and diagnostic status.
-- User-initiated IMDb dataset status and metadata, such as update time, source date/header information, and indexed row count.
+- IMDb dataset status, update preference, and metadata, such as update time, source date/header information, and indexed row count.
 
 DouRate 可能在本机或用户主动发起查询时处理以下信息：
 
 - 流媒体页面公开提供的作品名称、年份、影视类型和平台内容 ID，用于作品匹配；
 - 匹配到的豆瓣评分、IMDb 评分、来源链接、匹配元数据和查询状态；
 - 本地设置，例如豆瓣加载模式和诊断状态；
-- 用户主动下载的 IMDb 数据集状态和元数据，例如更新时间、来源日期／响应头信息及索引行数。
+- IMDb 数据集状态、更新偏好和元数据，例如更新时间、来源日期／响应头信息及索引行数。
 
 DouRate does not intentionally collect or store usernames, passwords, payment details, browsing history, full page contents, or cookie values. It does not sell, rent, or use this information for advertising or profiling.
 
@@ -38,13 +38,13 @@ When a user views a supported streaming page, the extension may make requests to
 
 - **Douban** (`movie.douban.com` and `search.douban.com`) to look up a rating. These requests use the browser's existing Douban session context where the browser permits it. DouRate does not read or extract cookie values. Douban may show its own verification or rate-limit page.
 - **Wikidata** (`www.wikidata.org`) to help disambiguate titles and resolve a reliable IMDb identifier. These requests do not use the user's Douban session.
-- **IMDb datasets** (`datasets.imdbws.com`) only after the user clicks the download or update button. The extension downloads the official ratings dataset directly and does not scrape IMDb pages.
+- **IMDb datasets** (`datasets.imdbws.com`) after the user completes the first download. The extension may subsequently update the official ratings dataset at the user-selected interval (1–90 days), or only when manually requested. It does not scrape IMDb pages.
 
 当用户浏览受支持的流媒体页面时，插件可能向以下地址发起请求：
 
 - **豆瓣**（`movie.douban.com` 和 `search.douban.com`）查询评分。浏览器允许时，请求会使用浏览器现有的豆瓣会话上下文；DouRate 不读取或提取 Cookie 值。豆瓣可能显示自己的验证或限流页面；
 - **Wikidata**（`www.wikidata.org`）辅助消歧并解析可靠的 IMDb ID。这些请求不会使用用户的豆瓣会话；
-- **IMDb 数据集**（`datasets.imdbws.com`），仅在用户点击下载或更新后访问。插件直接下载官方评分数据集，不抓取 IMDb 网页。
+- **IMDb 数据集**（`datasets.imdbws.com`），在用户完成首次下载后访问。插件之后可按用户选择的 1–90 天周期自动更新，或只在用户手动请求时更新；插件直接下载官方评分数据集，不抓取 IMDb 网页。
 
 DouRate does not send rating data to a developer server. Network providers and the third-party sites above may process requests under their own privacy policies and terms.
 
@@ -64,9 +64,9 @@ DouRate 不会把评分数据发送到开发者服务器。网络服务商及上
 
 ## 5. IMDb data restrictions / IMDb 数据限制
 
-IMDb data in this extension is available only through a user-initiated download of IMDb's official non-commercial dataset. IMDb's dataset terms limit this feature to non-commercial use on the user's own device. Do not redistribute the IMDb dataset, the parsed index, or an installation package containing that data. Do not use the feature as a public or commercial data service without the appropriate permission from IMDb.
+IMDb data in this extension begins with a user-initiated download of IMDb's official non-commercial dataset. After that first download, the user may opt into automatic updates in the extension settings. IMDb's dataset terms limit this feature to non-commercial use on the user's own device. Do not redistribute the IMDb dataset, the parsed index, or an installation package containing that data. Do not use the feature as a public or commercial data service without the appropriate permission from IMDb.
 
-本扩展中的 IMDb 数据仅通过用户主动下载 IMDb 官方非商业数据集获得。IMDb 数据集条款将此功能限制为非商业、仅供用户本人设备使用。请勿再分发 IMDb 数据集、解析后的索引或包含该数据的安装包；如需公开或商业化使用，请先取得 IMDb 的相应许可。
+本扩展中的 IMDb 数据始于用户主动下载 IMDb 官方非商业数据集。完成首次下载后，用户可在插件设置中选择自动更新。IMDb 数据集条款将此功能限制为非商业、仅供用户本人设备使用。请勿再分发 IMDb 数据集、解析后的索引或包含该数据的安装包；如需公开或商业化使用，请先取得 IMDb 的相应许可。
 
 Information courtesy of IMDb (https://www.imdb.com). Used with permission.
 

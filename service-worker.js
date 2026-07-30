@@ -9,7 +9,9 @@ const WIKIDATA_TITLE_CACHE_STORAGE_PREFIX = "douRateWikidataTitle:";
 const NETFLIX_CONTENT_CACHE_STORAGE_PREFIX = "douRateNetflixContent:";
 const DIAGNOSTICS_STORAGE_KEY = "douRateDiagnostics";
 const IMDB_STATUS_STORAGE_KEY = "douRateIMDbStatus";
+const IMDB_REFRESH_POLICY_STORAGE_KEY = "douRateIMDbRefreshPolicy";
 const IMDB_DATASET_URL = "https://datasets.imdbws.com/title.ratings.tsv.gz";
+const IMDB_REFRESH_ALARM = "douRateIMDbRefresh";
 const IMDB_DB_NAME = "douRateIMDbRatings";
 const IMDB_DB_VERSION = 1;
 const IMDB_METADATA_KEY = "current";
@@ -106,8 +108,9 @@ async function recordLookupOutcome(result) {
   });
 }
 
-function cacheKey(title, year, mediaType) {
-  return `${NetflixDouban.normalizedTitle(title)}:${year || ""}:${mediaType || ""}`;
+function cacheKey(title, year, mediaType, runtimeMinutes = 0) {
+  const base = `${NetflixDouban.normalizedTitle(title)}:${year || ""}:${mediaType || ""}`;
+  return runtimeMinutes ? `${base}:${runtimeMinutes}` : base;
 }
 
 function isFreshCacheEntry(entry) {
@@ -414,17 +417,65 @@ async function setIMDbStatus(patch) {
   return status;
 }
 
-async function getIMDbDatasetStatus() {
-  let transient = {};
+async function getIMDbRefreshPolicy() {
   try {
-    transient = (await chrome.storage.local.get(IMDB_STATUS_STORAGE_KEY))[IMDB_STATUS_STORAGE_KEY] || {};
+    const value = (await chrome.storage.local.get(IMDB_REFRESH_POLICY_STORAGE_KEY))[IMDB_REFRESH_POLICY_STORAGE_KEY];
+    return NetflixDouban.validateIMDbRefreshPolicy(value) || NetflixDouban.defaultIMDbRefreshPolicy();
+  } catch (error) {
+    console.debug("[DouRate] IMDb refresh policy unavailable", error);
+    return NetflixDouban.defaultIMDbRefreshPolicy();
+  }
+}
+
+async function clearIMDbRefreshAlarm() {
+  if (!chrome.alarms?.clear) return;
+  await chrome.alarms.clear(IMDB_REFRESH_ALARM);
+}
+
+async function scheduleIMDbRefreshAlarm({ fromAttempt = false } = {}) {
+  const [metadata, policy] = await Promise.all([getIMDbMetadata(), getIMDbRefreshPolicy()]);
+  if (!metadata?.generation || policy.mode === "manual") {
+    await clearIMDbRefreshAlarm();
+    await setIMDbStatus({ nextRefreshAt: 0 });
+    return 0;
+  }
+  const status = await getIMDbStatusRecord();
+  const lastAttemptAt = fromAttempt ? Date.now() : Number(status.lastRefreshAttemptAt || 0);
+  const nextRefreshAt = NetflixDouban.nextIMDbRefreshAt(metadata.updatedAt, policy, lastAttemptAt);
+  // Chrome may defer alarms. Ask for a future alarm even if an older schedule
+  // was missed while Chrome was closed.
+  const when = Math.max(nextRefreshAt, Date.now() + 60 * 1000);
+  await chrome.alarms.create(IMDB_REFRESH_ALARM, { when });
+  await setIMDbStatus({ nextRefreshAt: when });
+  return when;
+}
+
+async function saveIMDbRefreshPolicy(policy) {
+  const valid = NetflixDouban.validateIMDbRefreshPolicy(policy);
+  if (!valid) return { ok: false, reason: "invalid_imdb_refresh_policy" };
+  await chrome.storage.local.set({ [IMDB_REFRESH_POLICY_STORAGE_KEY]: valid });
+  await scheduleIMDbRefreshAlarm();
+  return { ok: true, policy: valid, status: await getIMDbDatasetStatus() };
+}
+
+async function getIMDbStatusRecord() {
+  try {
+    return (await chrome.storage.local.get(IMDB_STATUS_STORAGE_KEY))[IMDB_STATUS_STORAGE_KEY] || {};
   } catch (error) {
     console.debug("[DouRate] IMDb status read failed", error);
+    return {};
   }
-  const metadata = await getIMDbMetadata();
-  if (transient.phase === "downloading") return { ...metadata, ...transient };
-  if (metadata) return { ...transient, phase: "ready", ...metadata };
-  return transient.phase === "error" ? transient : { phase: "missing" };
+}
+
+async function getIMDbDatasetStatus() {
+  const [transient, metadata, policy] = await Promise.all([
+    getIMDbStatusRecord(),
+    getIMDbMetadata(),
+    getIMDbRefreshPolicy()
+  ]);
+  if (transient.phase === "downloading") return { ...metadata, ...transient, policy };
+  if (metadata) return { ...transient, phase: "ready", ...metadata, policy };
+  return transient.phase === "error" ? { ...transient, policy } : { phase: "missing", policy };
 }
 
 function safeIMDbErrorMessage(error) {
@@ -440,9 +491,11 @@ async function importIMDbDataset() {
 
   const generation = `imdb-${Date.now()}`;
   const importTask = (async () => {
+    const existing = await getIMDbMetadata();
     await setIMDbStatus({
       phase: "downloading",
       startedAt: Date.now(),
+      lastRefreshAttemptAt: Date.now(),
       rowsIndexed: 0,
       error: ""
     });
@@ -505,7 +558,14 @@ async function importIMDbDataset() {
       };
       await saveIMDbMetadata(metadata);
       imdbLookupCache.clear();
-      await setIMDbStatus({ phase: "ready", ...metadata, error: "" });
+      await setIMDbStatus({
+        phase: "ready",
+        ...metadata,
+        error: "",
+        lastFailureAt: 0,
+        lastRefreshAttemptAt: 0
+      });
+      await scheduleIMDbRefreshAlarm();
       removeStaleIMDbGenerations(generation).catch((error) =>
         console.debug("[DouRate] could not clean stale IMDb data", error)
       );
@@ -514,12 +574,12 @@ async function importIMDbDataset() {
       await deleteIMDbGeneration(generation).catch((cleanupError) =>
         console.debug("[DouRate] could not remove incomplete IMDb data", cleanupError)
       );
-      const existing = await getIMDbMetadata();
       await setIMDbStatus({
         phase: existing ? "ready" : "error",
         error: safeIMDbErrorMessage(error),
         lastFailureAt: Date.now()
       });
+      if (existing) await scheduleIMDbRefreshAlarm({ fromAttempt: true });
       return { ok: false, reason: "imdb_download_failed", message: safeIMDbErrorMessage(error) };
     }
   })();
@@ -532,6 +592,7 @@ async function importIMDbDataset() {
 
 async function deleteIMDbDataset() {
   if (imdbImportPromise) return { ok: false, reason: "imdb_download_in_progress" };
+  await clearIMDbRefreshAlarm();
   if (!canUseIMDbDatabase()) return { ok: true };
   await setIMDbStatus({ phase: "deleting", error: "" });
   await new Promise((resolve, reject) => {
@@ -542,7 +603,13 @@ async function deleteIMDbDataset() {
   });
   imdbMetadataCache = null;
   imdbLookupCache.clear();
-  await setIMDbStatus({ phase: "missing", deletedAt: Date.now(), error: "", rowsIndexed: 0 });
+  await setIMDbStatus({
+    phase: "missing",
+    deletedAt: Date.now(),
+    error: "",
+    rowsIndexed: 0,
+    nextRefreshAt: 0
+  });
   return { ok: true };
 }
 
@@ -651,25 +718,33 @@ function looksLikeScreenWork(description) {
   return /\b(film|movie|television|tv|anime|series|show|drama)\b/i.test(description || "");
 }
 
-function chooseCanonicalEntity(items, title, year, mediaType) {
+function itemTypeMatches(item, mediaType) {
+  if (!mediaType) return true;
+  const description = item?.description || "";
+  return mediaType === "tv"
+    ? /\b(television|tv|anime|series|show)\b/i.test(description)
+    : /\b(film|movie)\b/i.test(description);
+}
+
+function getCanonicalCandidates(items, title, year, mediaType) {
   const expected = NetflixDouban.normalizedTitle(title);
-  const exact = (items || []).filter(
-    (item) => NetflixDouban.normalizedTitle(item.label) === expected && looksLikeScreenWork(item.description)
+  let candidates = (items || []).filter(
+    (item) =>
+      NetflixDouban.normalizedTitle(item.label) === expected &&
+      looksLikeScreenWork(item.description) &&
+      itemTypeMatches(item, mediaType)
   );
-  if (!exact.length) return null;
-
-  const yearMatches = year
-    ? exact.filter((item) => new RegExp(`\\b${year}\\b`).test(item.description || ""))
-    : [];
-  const candidates = yearMatches.length ? yearMatches : exact;
-
-  if (mediaType === "tv") {
-    return candidates.find((item) => /\b(television|tv|anime|series|show)\b/i.test(item.description || "")) || null;
+  if (year) {
+    candidates = candidates.filter((item) => new RegExp(`\\b${year}\\b`).test(item.description || ""));
   }
-  if (mediaType === "movie") {
-    return candidates.find((item) => /\b(film|movie)\b/i.test(item.description || "")) || null;
-  }
-  return candidates[0];
+  return candidates;
+}
+
+function chooseCanonicalEntity(items, title, year, mediaType) {
+  const candidates = getCanonicalCandidates(items, title, year, mediaType);
+  // Search-result order is not identity. Without a unique, metadata-aligned
+  // candidate, keep the rating unknown rather than attach another work's score.
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 function extractIMDbId(entity) {
@@ -677,8 +752,36 @@ function extractIMDbId(entity) {
   return /^tt\d{5,}$/i.test(value || "") ? value : "";
 }
 
-async function getWikidataTitleData(title, year, mediaType) {
-  const key = cacheKey(title, year, mediaType);
+function extractRuntimeMinutes(entity) {
+  const duration = entity?.claims?.P2047?.[0]?.mainsnak?.datavalue?.value;
+  const amount = Math.abs(Number(duration?.amount));
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  if (/Q11574$/i.test(duration?.unit || "")) return Math.round(amount / 60);
+  return Math.round(amount);
+}
+
+async function chooseCandidateByRuntime(candidates, runtimeMinutes) {
+  if (!runtimeMinutes || candidates.length < 2) return null;
+  const records = await Promise.all(candidates.map(async (candidate) => {
+    const details = await fetchWikidata({
+      action: "wbgetentities",
+      ids: candidate.id,
+      props: "labels|claims",
+      languages: "zh-hans|zh-cn|zh",
+      format: "json",
+      origin: "*"
+    });
+    return { candidate, entity: details.entities?.[candidate.id] };
+  }));
+  const runtimeMatches = records.filter((record) => {
+    const candidateRuntime = extractRuntimeMinutes(record.entity);
+    return candidateRuntime && Math.abs(candidateRuntime - runtimeMinutes) <= 5;
+  });
+  return runtimeMatches.length === 1 ? runtimeMatches[0] : null;
+}
+
+async function getWikidataTitleData(title, year, mediaType, runtimeMinutes = 0) {
+  const key = cacheKey(title, year, mediaType, runtimeMinutes);
   const cached = await getCachedWikidataTitleData(key);
   if (cached) return cached;
   if (pendingWikidataLookups.has(key)) return pendingWikidataLookups.get(key);
@@ -693,18 +796,29 @@ async function getWikidataTitleData(title, year, mediaType) {
         origin: "*",
         limit: "8"
       });
-      const entity = chooseCanonicalEntity(search.search, title, year, mediaType);
+      let entity = chooseCanonicalEntity(search.search, title, year, mediaType);
+      let wikidataEntity;
+      const candidates = getCanonicalCandidates(search.search, title, year, mediaType);
+      // Runtime is a strict tie-breaker only after title, type, and year all
+      // agree. It never broadens a title search or turns weak metadata into a guess.
+      if (!entity && year && candidates.length > 1 && runtimeMinutes) {
+        const runtimeMatch = await chooseCandidateByRuntime(candidates, runtimeMinutes);
+        entity = runtimeMatch?.candidate || null;
+        wikidataEntity = runtimeMatch?.entity;
+      }
       if (!entity) return null;
 
-      const entities = await fetchWikidata({
-        action: "wbgetentities",
-        ids: entity.id,
-        props: "labels|claims",
-        languages: "zh-hans|zh-cn|zh",
-        format: "json",
-        origin: "*"
-      });
-      const wikidataEntity = entities.entities?.[entity.id] || {};
+      if (!wikidataEntity) {
+        const entities = await fetchWikidata({
+          action: "wbgetentities",
+          ids: entity.id,
+          props: "labels|claims",
+          languages: "zh-hans|zh-cn|zh",
+          format: "json",
+          origin: "*"
+        });
+        wikidataEntity = entities.entities?.[entity.id] || {};
+      }
       const labels = wikidataEntity.labels || {};
       return {
         canonicalTitle:
@@ -730,8 +844,8 @@ async function getWikidataTitleData(title, year, mediaType) {
   }
 }
 
-async function getCanonicalDoubanTitle(title, year, mediaType) {
-  const data = await getWikidataTitleData(title, year, mediaType);
+async function getCanonicalDoubanTitle(title, year, mediaType, runtimeMinutes = 0) {
+  const data = await getWikidataTitleData(title, year, mediaType, runtimeMinutes);
   return data?.canonicalTitle || null;
 }
 
@@ -783,14 +897,20 @@ function fetchDoubanAtConservativeRate(url, options) {
   return task;
 }
 
-async function lookupDoubanRating({ title, year, mediaType, contentId }) {
+async function lookupDoubanRating({ title, year, mediaType, runtimeMinutes, contentId }) {
   const cleanTitle = NetflixDouban.cleanTitle(title);
   if (!cleanTitle) return { ok: false, reason: "missing_title" };
 
   const normalizedMediaType = /^(movie|tv)$/.test(mediaType || "") ? mediaType : "";
+  const normalizedRuntime = Number.isInteger(Number(runtimeMinutes)) && Number(runtimeMinutes) > 0
+    ? Number(runtimeMinutes)
+    : 0;
   const contentCached = await getCachedNetflixContentRating("douban", contentId, cleanTitle);
   if (contentCached) return contentCached;
-  const key = cacheKey(cleanTitle, year, normalizedMediaType);
+  // Runtime stays out of ordinary keys when unavailable, but prevents a
+  // runtime-resolved canonical fallback from being reused for a different
+  // same-title, same-year work.
+  const key = cacheKey(cleanTitle, year, normalizedMediaType, normalizedRuntime);
   const cached = await getCached(key);
   if (cached) {
     if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
@@ -811,7 +931,7 @@ async function lookupDoubanRating({ title, year, mediaType, contentId }) {
     return { ok: false, reason: "douban_cooldown", retryAt: cooldownUntil };
   }
 
-  const lookup = resolveDoubanRating(cleanTitle, year, normalizedMediaType, key);
+  const lookup = resolveDoubanRating(cleanTitle, year, normalizedMediaType, normalizedRuntime, key);
   pendingLookups.set(key, lookup);
   try {
     const result = await lookup;
@@ -830,7 +950,7 @@ async function finishLookup(key, result) {
   return result;
 }
 
-async function resolveDoubanRating(cleanTitle, year, mediaType, key) {
+async function resolveDoubanRating(cleanTitle, year, mediaType, runtimeMinutes, key) {
   try {
     // A browse card has no reliable year or media type, so accept raw English
     // search results only when the title itself is an exact match. Detail pages
@@ -845,7 +965,7 @@ async function resolveDoubanRating(cleanTitle, year, mediaType, key) {
     if (search.result) return finishLookup(key, search.result);
     let searchFormatChanged = search.reason === "provider_format_changed";
 
-    const canonicalTitle = await getCanonicalDoubanTitle(cleanTitle, year, mediaType);
+    const canonicalTitle = await getCanonicalDoubanTitle(cleanTitle, year, mediaType, runtimeMinutes);
     if (canonicalTitle && NetflixDouban.normalizedTitle(canonicalTitle) !== NetflixDouban.normalizedTitle(cleanTitle)) {
       const canonicalSearch = await lookupDoubanSearch(canonicalTitle, year, mediaType, 70);
       if (canonicalSearch.result) return finishLookup(key, canonicalSearch.result);
@@ -910,18 +1030,21 @@ async function resolveDoubanRating(cleanTitle, year, mediaType, key) {
   }
 }
 
-function imdbLookupKey(title, year, mediaType) {
-  return `imdb:${cacheKey(title, year, mediaType)}`;
+function imdbLookupKey(title, year, mediaType, runtimeMinutes) {
+  return `imdb:${cacheKey(title, year, mediaType, runtimeMinutes)}`;
 }
 
-async function lookupIMDbRating({ title, year, mediaType, contentId }) {
+async function lookupIMDbRating({ title, year, mediaType, runtimeMinutes, contentId }) {
   const cleanTitle = NetflixDouban.cleanTitle(title);
   if (!cleanTitle) return { ok: false, reason: "missing_title" };
 
   const normalizedMediaType = /^(movie|tv)$/.test(mediaType || "") ? mediaType : "";
+  const normalizedRuntime = Number.isInteger(Number(runtimeMinutes)) && Number(runtimeMinutes) > 0
+    ? Number(runtimeMinutes)
+    : 0;
   const contentCached = await getCachedNetflixContentRating("imdb", contentId, cleanTitle);
   if (contentCached) return contentCached;
-  const key = imdbLookupKey(cleanTitle, year, normalizedMediaType);
+  const key = imdbLookupKey(cleanTitle, year, normalizedMediaType, normalizedRuntime);
   if (imdbLookupCache.has(key)) {
     const result = await imdbLookupCache.get(key);
     if (hasReliableNetflixDetailMetadata(contentId, year, normalizedMediaType)) {
@@ -934,7 +1057,12 @@ async function lookupIMDbRating({ title, year, mediaType, contentId }) {
     const metadata = await getIMDbMetadata();
     if (!metadata?.generation) return { ok: false, reason: "imdb_data_missing" };
 
-    const wikidata = await getWikidataTitleData(cleanTitle, year, normalizedMediaType);
+    const wikidata = await getWikidataTitleData(
+      cleanTitle,
+      year,
+      normalizedMediaType,
+      normalizedRuntime
+    );
     if (wikidata === undefined) return { ok: false, reason: "imdb_mapping_unavailable" };
     const imdbId = wikidata?.imdbId;
     if (!imdbId) return { ok: false, reason: "imdb_no_id" };
@@ -979,6 +1107,34 @@ async function lookupIMDbRating({ title, year, mediaType, contentId }) {
   }
 }
 
+if (globalThis.__DOURATE_TEST__) {
+  Object.assign(globalThis.__DOURATE_TEST__, {
+    chooseCanonicalEntity,
+    extractRuntimeMinutes
+  });
+}
+
+chrome.alarms?.onAlarm.addListener((alarm) => {
+  if (alarm.name !== IMDB_REFRESH_ALARM) return;
+  importIMDbDataset().catch((error) => console.debug("[DouRate] automatic IMDb refresh failed", error));
+});
+
+chrome.runtime.onInstalled?.addListener(({ reason }) => {
+  scheduleIMDbRefreshAlarm().catch((error) =>
+    console.debug("[DouRate] could not schedule IMDb refresh", error)
+  );
+  if (reason !== "install") return;
+  chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") }).catch((error) =>
+    console.debug("[DouRate] could not open welcome page", error)
+  );
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  scheduleIMDbRefreshAlarm().catch((error) =>
+    console.debug("[DouRate] could not restore IMDb refresh", error)
+  );
+});
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const payload = message?.payload || {};
   if (message?.type === "LOOKUP_DOUBAN_RATING") {
@@ -987,6 +1143,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     lookupIMDbRating(payload).then(sendResponse);
   } else if (message?.type === "GET_IMDB_DATASET_STATUS") {
     getIMDbDatasetStatus().then(sendResponse);
+  } else if (message?.type === "SET_IMDB_REFRESH_POLICY") {
+    saveIMDbRefreshPolicy(payload).then(sendResponse);
   } else if (message?.type === "DOWNLOAD_IMDB_DATASET") {
     importIMDbDataset().then(sendResponse);
   } else if (message?.type === "DELETE_IMDB_DATASET") {

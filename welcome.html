@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>欢迎使用 DouRate</title>
+    <style>
+      :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; min-height: 100vh; background: #101010; color: #f4f4f4; display: grid; place-items: center; }
+      main { width: min(600px, calc(100% - 48px)); padding: 44px; border: 1px solid #343434; border-radius: 18px; background: #181818; }
+      h1 { margin: 0 0 12px; font-size: 30px; }
+      h2 { margin: 28px 0 8px; font-size: 18px; }
+      p { margin: 8px 0; color: #d3d3d3; line-height: 1.65; }
+      .number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-right: 7px; border-radius: 50%; background: #2e2e2e; font-size: 13px; }
+      .source { overflow-wrap: anywhere; }
+      .source a { color: #81b7ff; }
+      #status { min-height: 25px; margin-top: 20px; color: #c7c7c7; font-size: 14px; }
+      button { min-height: 38px; margin-top: 4px; border: 1px solid #2274df; border-radius: 7px; padding: 8px 14px; background: #1670e6; color: #fff; cursor: pointer; font: inherit; font-size: 14px; }
+      button:disabled { cursor: wait; opacity: .65; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>欢迎使用 DouRate</h1>
+      <p>感谢你的下载支持。本产品旨在对你的观影体验有小小的优化。开始前建议完成以下两步：</p>
+
+      <h2><span class="number">1</span>豆瓣评分</h2>
+      <p>在本浏览器登录自己的豆瓣账号。</p>
+      <p>DouRate 只会由你的浏览器查询豆瓣；登录状态有助于减少验证或查询失败。</p>
+      <p>你可以随时通过点击 DouRate 图标切换加载模式，以避免触发限流。</p>
+
+      <h2><span class="number">2</span>IMDB 评分</h2>
+      <p>访问以下链接，或点击下面的按钮，下载 IMDB 官方数据包。你可以随时通过点击 DouRate 图标设置未来的数据更新频率。</p>
+      <p class="source"><a id="download-source" href="https://datasets.imdbws.com/title.ratings.tsv.gz" title="下载并建立本机索引：https://datasets.imdbws.com/title.ratings.tsv.gz">https://datasets.imdbws.com/title.ratings.tsv.gz</a></p>
+      <p id="status" role="status" aria-live="polite"></p>
+      <button id="download" type="button" title="下载并建立本机 IMDb 数据索引">下载 IMDB 官方数据包</button>
+
+      <p>然后刷新流媒体平台页面即可。</p>
+    </main>
+    <script src="welcome.js"></script>
+  </body>
+</html>

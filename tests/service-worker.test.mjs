@@ -19,8 +19,46 @@ function response(status, body) {
   };
 }
 
-function createWorker(fetchImpl) {
+function createMetadataIndexedDb(metadata) {
+  return {
+    open() {
+      const request = {};
+      const transaction = {
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+        objectStore(name) {
+          assert.equal(name, "metadata");
+          return {
+            get() {
+              const getRequest = {};
+              queueMicrotask(() => {
+                getRequest.result = metadata ? { key: "current", ...metadata } : undefined;
+                getRequest.onsuccess?.();
+                queueMicrotask(() => transaction.oncomplete?.());
+              });
+              return getRequest;
+            }
+          };
+        }
+      };
+      const database = {
+        transaction() { return transaction; },
+        close() {},
+        objectStoreNames: { contains: () => true }
+      };
+      queueMicrotask(() => {
+        request.result = database;
+        request.onsuccess?.();
+      });
+      return request;
+    }
+  };
+}
+
+function createWorker(fetchImpl, { metadata } = {}) {
   const storage = new Map();
+  const alarms = { created: [], cleared: [], alarmListener: null };
   let messageListener;
   const sandbox = {
     URL,
@@ -39,7 +77,11 @@ function createWorker(fetchImpl) {
     console: { debug() {}, warn() {} },
     setTimeout,
     clearTimeout,
+    queueMicrotask,
+    DecompressionStream: class DecompressionStream {},
     fetch: fetchImpl,
+    __DOURATE_TEST__: {},
+    indexedDB: createMetadataIndexedDb(metadata),
     chrome: {
       storage: {
         local: {
@@ -63,6 +105,11 @@ function createWorker(fetchImpl) {
             messageListener = listener;
           }
         }
+      },
+      alarms: {
+        async create(name, info) { alarms.created.push({ name, info }); },
+        async clear(name) { alarms.cleared.push(name); return true; },
+        onAlarm: { addListener(listener) { alarms.alarmListener = listener; } }
       }
     }
   };
@@ -72,6 +119,8 @@ function createWorker(fetchImpl) {
 
   return {
     storage,
+    alarms,
+    testing: sandbox.__DOURATE_TEST__,
     send(type, payload = {}) {
       return new Promise((resolve) => {
         const keepOpen = messageListener(
@@ -134,6 +183,44 @@ test("does not fetch IMDb pages before the user downloads the local ratings data
   assert.equal(fetchCount, 0);
 });
 
+test("schedules IMDb auto-refresh only after local data exists", async () => {
+  const updatedAt = Date.now() - 1000;
+  const worker = createWorker(async () => response(503, ""), {
+    metadata: { generation: "g1", updatedAt, rowCount: 2 }
+  });
+  const result = await worker.send("SET_IMDB_REFRESH_POLICY", { mode: "auto", intervalDays: 7 });
+
+  assert.equal(result.ok, true);
+  assert.equal(worker.alarms.created.length, 1);
+  assert.equal(worker.alarms.created[0].name, "douRateIMDbRefresh");
+  assert.ok(worker.alarms.created[0].info.when >= updatedAt + 6 * 24 * 60 * 60 * 1000);
+});
+
+test("manual IMDb updates remove the scheduled refresh", async () => {
+  const worker = createWorker(async () => response(503, ""), {
+    metadata: { generation: "g1", updatedAt: Date.now(), rowCount: 2 }
+  });
+  const result = await worker.send("SET_IMDB_REFRESH_POLICY", { mode: "manual" });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(worker.alarms.cleared, ["douRateIMDbRefresh"]);
+});
+
+test("keeps ready IMDb data after an automatic refresh fails", async () => {
+  const worker = createWorker(async () => response(503, ""), {
+    metadata: { generation: "g1", updatedAt: Date.now() - 10_000, rowCount: 2 }
+  });
+  await worker.send("SET_IMDB_REFRESH_POLICY", { mode: "auto", intervalDays: 7 });
+  worker.alarms.alarmListener({ name: "douRateIMDbRefresh" });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const status = await worker.send("GET_IMDB_DATASET_STATUS");
+  assert.equal(status.phase, "ready");
+  assert.match(status.error, /HTTP 503/);
+  assert.ok(worker.alarms.created.length >= 2);
+});
+
 test("reuses a verified detail score for the same Netflix catalog id", async () => {
   let fetchCount = 0;
   const urls = [];
@@ -176,4 +263,17 @@ test("reuses a verified detail score for the same Netflix catalog id", async () 
   });
   assert.equal(cardResult.score, "8.8");
   assert.equal(fetchCount, 1);
+});
+
+test("requires a unique metadata-aligned Wikidata candidate and parses duration", () => {
+  const worker = createWorker(async () => response(503, ""));
+  const items = [
+    { id: "Q2008", label: "The Hustle", description: "2008 film" },
+    { id: "Q2019", label: "The Hustle", description: "2019 film directed by Chris Addison" }
+  ];
+  assert.equal(worker.testing.chooseCanonicalEntity(items, "The Hustle", "", "movie"), null);
+  assert.equal(worker.testing.chooseCanonicalEntity(items, "The Hustle", "2019", "movie").id, "Q2019");
+  assert.equal(worker.testing.extractRuntimeMinutes({
+    claims: { P2047: [{ mainsnak: { datavalue: { value: { amount: "+94", unit: "http://www.wikidata.org/entity/Q7727" } } } }] }
+  }), 94);
 });

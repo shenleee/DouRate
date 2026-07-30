@@ -1,8 +1,8 @@
 DouRate 安装与更新 / Installation & Update
 =============================================
 
-版本 / Version: 0.3.1
-安装包 / Package: dourate-demo-0.3.1.zip
+版本 / Version: 0.3.4
+安装包 / Package: dourate-demo-0.3.4.zip
 
 中文
 ----
@@ -12,12 +12,12 @@ DouRate 安装与更新 / Installation & Update
 1. 解压 ZIP 到本地文件夹；Chrome 不能直接安装 ZIP。
 2. 打开 `chrome://extensions`，开启右上角“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的 DouRate 文件夹。
-4. 确认扩展名称为 DouRate、版本为 0.3.1，然后刷新 Netflix、Prime Video 或 Disney+。
+4. 确认扩展名称为 DouRate、版本为 0.3.4，然后刷新 Netflix、Prime Video 或 Disney+。
 
 ## 使用
 
 - 工具栏弹窗可选择**豆瓣加载模式**。新安装默认“首页局部加载”；该设置只控制豆瓣的直接查询。
-- IMDb 评分需要用户在弹窗的“IMDb 本地数据”中主动下载数据。完成后刷新流媒体页面，IMDb 会独立从本机索引显示可用评分。
+- IMDb 评分需要用户在弹窗的“IMDb 本地数据”中主动完成首次下载。完成后可选择每 1–90 天自动更新，或保持仅手动更新；IMDb 会独立从本机索引显示可用评分。
 - 单个详情页通常较快；浏览卡片会逐步显示。卡片没有足够年份／类型信息时，插件会显示问号而不猜测。
 
 ## 更新与本机数据
@@ -34,12 +34,12 @@ English
 1. Extract the ZIP to a local folder; Chrome cannot install a ZIP directly.
 2. Open `chrome://extensions` and enable Developer mode.
 3. Click **Load unpacked** and select the DouRate folder that directly contains `manifest.json`.
-4. Confirm the name is DouRate and the version is 0.3.1, then refresh Netflix, Prime Video, or Disney+.
+4. Confirm the name is DouRate and the version is 0.3.4, then refresh Netflix, Prime Video, or Disney+.
 
 ## Use
 
 - Choose a **Douban loading mode** in the toolbar popup. Fresh installs default to Browse: visible area; this setting controls only direct Douban requests.
-- IMDb ratings require a user-initiated download under **IMDb Local Data** in the popup. Refresh the streaming page afterward; IMDb independently reads available scores from the local index.
+- IMDb ratings require a user-initiated first download under **IMDb Local Data** in the popup. Afterward, choose automatic updates every 1–90 days or manual updates only; IMDb independently reads available scores from the local index.
 - An individual title page is normally quicker; browse cards progressively appear. When a card lacks enough year/type metadata, the extension shows a question mark rather than guessing.
 
 ## Update and local data

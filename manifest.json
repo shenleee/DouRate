@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
   "name": "DouRate",
-  "version": "0.3.1",
-  "description": "Shows available Douban and locally downloaded IMDb ratings on Netflix, Prime Video, and Disney+.",
+  "version": "0.3.4",
+  "description": "Shows ratings from IMDb and Douban on Netflix, Prime Video and Disney+ title pages and browse cards.",
   "icons": {
     "16": "assets/icons/dourate-16.png",
     "32": "assets/icons/dourate-32.png",
     "48": "assets/icons/dourate-48.png",
     "128": "assets/icons/dourate-128.png"
   },
-  "permissions": ["storage", "unlimitedStorage"],
+  "permissions": ["storage", "unlimitedStorage", "alarms"],
   "host_permissions": [
     "https://www.netflix.com/*",
     "https://www.primevideo.com/*",

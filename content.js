@@ -142,14 +142,7 @@
     );
   }
 
-  function getTitle() {
-    if (platform === "prime") {
-      return NetflixDouban.cleanTitle(
-        firstText(["main h1"]) || cleanDocumentTitle(document.title)
-      );
-    }
-    if (platform === "disney") return cleanDocumentTitle(document.title);
-
+  function netflixTitleSources() {
     const metadataTitle = document.querySelector("meta[property='og:title']")?.content;
     const titleTreatmentLogo = document.querySelector(
       ".previewModal--player-titleTreatment-logo[alt]"
@@ -161,9 +154,46 @@
       "[data-uia='video-title']"
     ]);
     const titlePageTitle = /^\/title\//.test(location.pathname) ? document.title : "";
-    return NetflixDouban.cleanTitle(
-      metadataTitle || titleTreatmentLogo || modalLogoTitle || titlePageTitle || visibleTitle
+    return [
+      { value: metadataTitle, metadata: true },
+      { value: titleTreatmentLogo },
+      { value: modalLogoTitle },
+      { value: visibleTitle, seriesSource: true },
+      { value: titlePageTitle }
+    ]
+      .map((source) => ({ ...source, value: NetflixDouban.cleanTitle(source.value) }))
+      .filter((source) => source.value);
+  }
+
+  function getNetflixTitleInfo(context) {
+    const sources = netflixTitleSources();
+    const episodeContext = NetflixDouban.episodeMarkerIndex(context) >= 0 || sources.some(
+      (source) => NetflixDouban.episodeMarkerIndex(source.value) >= 0
     );
+    if (!episodeContext) {
+      return {
+        title: sources.find((source) => source.metadata)?.value || sources[0]?.value || "",
+        isEpisode: false
+      };
+    }
+    const explicitSeriesTitle = sources.find(
+      (source) => source.seriesSource && NetflixDouban.episodeMarkerIndex(source.value) < 0
+    )?.value;
+    const parsedSeriesTitle = sources
+      .map((source) => NetflixDouban.seriesTitleFromEpisodeTitle(source.value))
+      .find(Boolean);
+    return { title: explicitSeriesTitle || parsedSeriesTitle || "", isEpisode: true };
+  }
+
+  function getTitle() {
+    if (platform === "prime") {
+      return NetflixDouban.cleanTitle(
+        firstText(["main h1"]) || cleanDocumentTitle(document.title)
+      );
+    }
+    if (platform === "disney") return cleanDocumentTitle(document.title);
+
+    return getNetflixTitleInfo(getTitleContextText()).title;
   }
 
   function getTitleContextText() {
@@ -189,10 +219,10 @@
     );
   }
 
-  function getMediaType() {
-    return /\b(episodes?|seasons?|series|limited series)\b/i.test(getTitleContextText())
-      ? "tv"
-      : "";
+  function getMediaType(context = getTitleContextText()) {
+    if (/\b(episodes?|seasons?|series|limited series|tv series|anime)\b/i.test(context)) return "tv";
+    if (/\b(movie|film)\b/i.test(context)) return "movie";
+    return "";
   }
 
   function getInsertionPoint() {
@@ -638,7 +668,7 @@
       : /\b(movie|film)\b/i.test(context)
         ? "movie"
         : "";
-    return { year, mediaType };
+    return { year, mediaType, runtimeMinutes: NetflixDouban.parseRuntimeMinutes(context) };
   }
 
   function getBrowseCardDetails(cardLink) {
@@ -651,8 +681,8 @@
           : getNetflixCardTitle(cardLink);
     const href = cardLink.getAttribute("href") || "";
     if (!card || !title || !href) return null;
-    const { year, mediaType } = getBrowseCardMetadata(cardLink, card);
-    const key = lookupKey(title, year, mediaType);
+    const { year, mediaType, runtimeMinutes } = getBrowseCardMetadata(cardLink, card);
+    const key = lookupKey(title, year, mediaType, runtimeMinutes);
     if (!key) return null;
 
     return {
@@ -660,9 +690,51 @@
       title,
       year,
       mediaType,
+      runtimeMinutes,
       key,
       contentId: getPlatformContentId(href),
       identity: platform + ":" + stableCardPath(href) + ":" + key
+    };
+  }
+
+  function getNetflixSelectedBrowseDetails() {
+    if (platform !== "netflix" || !location.search.includes("jbv=")) return null;
+    const contentId = getPlatformContentId(location.href);
+    if (!contentId) return null;
+    const selectedLink = Array.from(document.querySelectorAll("a[href*='jbv=']")).find(
+      (link) => getPlatformContentId(link.getAttribute("href") || "") === contentId
+    );
+    return selectedLink ? getBrowseCardDetails(selectedLink) : null;
+  }
+
+  function getLookupDetails() {
+    const context = getTitleContextText();
+    if (platform !== "netflix") {
+      return {
+        title: getTitle(),
+        year: NetflixDouban.parseYear(context),
+        mediaType: getMediaType(context),
+        runtimeMinutes: NetflixDouban.parseRuntimeMinutes(context),
+        contentId: getPlatformContentId(location.href)
+      };
+    }
+
+    const selected = getNetflixSelectedBrowseDetails();
+    const mergedContext = [context, selected?.title, selected?.year, selected?.mediaType]
+      .filter(Boolean)
+      .join(" ");
+    const titleInfo = getNetflixTitleInfo(mergedContext);
+    const isBrowseSelection = Boolean(selected && !/^\/title\//.test(location.pathname));
+    return {
+      title: titleInfo.isEpisode
+        ? titleInfo.title
+        : (isBrowseSelection ? selected.title : titleInfo.title || selected?.title || ""),
+      year: NetflixDouban.parseYear(mergedContext) || selected?.year || "",
+      mediaType: titleInfo.isEpisode
+        ? "tv"
+        : getMediaType(mergedContext) || selected?.mediaType || "",
+      runtimeMinutes: NetflixDouban.parseRuntimeMinutes(context) || selected?.runtimeMinutes || 0,
+      contentId: selected?.contentId || getPlatformContentId(location.href)
     };
   }
 
@@ -688,21 +760,21 @@
     return results;
   }
 
-  function queueIMDbBrowseLookup({ key, title, year, mediaType, contentId }) {
+  function queueIMDbBrowseLookup({ key, title, year, mediaType, runtimeMinutes, contentId }) {
     const results = browseResults.get(key);
     if (!isPendingRating(results?.imdb)) return;
     if (queuedIMDbBrowseKeys.has(key) || imdbBrowseInFlightKeys.has(key)) return;
     queuedIMDbBrowseKeys.add(key);
-    imdbBrowseQueue.push({ key, title, year, mediaType, contentId });
+    imdbBrowseQueue.push({ key, title, year, mediaType, runtimeMinutes, contentId });
     drainIMDbBrowseQueue();
   }
 
-  function queueDoubanBrowseLookup({ key, title, year, mediaType, contentId, background }) {
+  function queueDoubanBrowseLookup({ key, title, year, mediaType, runtimeMinutes, contentId, background }) {
     const results = browseResults.get(key);
     if (!isPendingRating(results?.douban)) return;
     if (queuedDoubanBrowseKeys.has(key) || doubanBrowseInFlightKeys.has(key)) return;
     queuedDoubanBrowseKeys.add(key);
-    doubanBrowseQueue.push({ key, title, year, mediaType, contentId, background });
+    doubanBrowseQueue.push({ key, title, year, mediaType, runtimeMinutes, contentId, background });
     drainDoubanBrowseQueue();
   }
 
@@ -711,7 +783,7 @@
     const details = getBrowseCardDetails(cardLink);
     if (!details) return;
 
-    const { card, title, year, mediaType, key, contentId, identity } = details;
+    const { card, title, year, mediaType, runtimeMinutes, key, contentId, identity } = details;
     if (card.dataset.dourateCardIdentity !== identity) {
       card.dataset.dourateCardIdentity = identity;
       card.dataset.dourateTitle = title;
@@ -731,9 +803,9 @@
     // of platform, viewport position, or the Douban mode. Once title-ID
     // mapping is cached, score reads are local IndexedDB lookups and display
     // independently. Only direct Douban requests remain mode-controlled.
-    queueIMDbBrowseLookup({ key, title, year, mediaType, contentId });
+    queueIMDbBrowseLookup({ key, title, year, mediaType, runtimeMinutes, contentId });
     if (requestDouban) {
-      queueDoubanBrowseLookup({ key, title, year, mediaType, contentId, background });
+      queueDoubanBrowseLookup({ key, title, year, mediaType, runtimeMinutes, contentId, background });
     }
   }
 
@@ -756,13 +828,13 @@
   function drainIMDbBrowseQueue() {
     if (extensionContextInvalidated) return;
     while (imdbBrowseInFlightKeys.size < MAX_BROWSE_IMDB_LOOKUPS && imdbBrowseQueue.length) {
-      const { key, title, year, mediaType, contentId } = imdbBrowseQueue.shift();
+      const { key, title, year, mediaType, runtimeMinutes, contentId } = imdbBrowseQueue.shift();
       queuedIMDbBrowseKeys.delete(key);
       const results = browseResults.get(key);
       if (!isPendingRating(results?.imdb) || imdbBrowseInFlightKeys.has(key)) continue;
 
       imdbBrowseInFlightKeys.add(key);
-      lookupIMDb({ title, year, mediaType, contentId })
+      lookupIMDb({ title, year, mediaType, runtimeMinutes, contentId })
         .then((result) => {
           const current = browseResults.get(key);
           if (!current) return;
@@ -787,7 +859,7 @@
   function drainDoubanBrowseQueue() {
     if (extensionContextInvalidated) return;
     while (doubanBrowseInFlightKeys.size < MAX_BROWSE_DOUBAN_LOOKUPS && doubanBrowseQueue.length) {
-      const { key, title, year, mediaType, contentId, background } = doubanBrowseQueue.shift();
+      const { key, title, year, mediaType, runtimeMinutes, contentId, background } = doubanBrowseQueue.shift();
       queuedDoubanBrowseKeys.delete(key);
       const results = browseResults.get(key);
       if (!isPendingRating(results?.douban) || doubanBrowseInFlightKeys.has(key)) continue;
@@ -795,8 +867,8 @@
       doubanBrowseInFlightKeys.add(key);
       const lookup =
         background && isFullDoubanBrowseMode()
-          ? delay(FULL_BACKGROUND_DELAY_MS).then(() => lookupDouban({ title, year, mediaType, contentId }))
-          : lookupDouban({ title, year, mediaType, contentId });
+          ? delay(FULL_BACKGROUND_DELAY_MS).then(() => lookupDouban({ title, year, mediaType, runtimeMinutes, contentId }))
+          : lookupDouban({ title, year, mediaType, runtimeMinutes, contentId });
 
       lookup
         .then((result) => {
@@ -869,19 +941,16 @@
       return;
     }
 
-    const title = getTitle();
-    const year = getYear();
-    const mediaType = getMediaType();
-    const contentId = getPlatformContentId(location.href);
+    const { title, year, mediaType, runtimeMinutes, contentId } = getLookupDetails();
     if (!title) return clearChip();
 
-    const requestKey = [location.href, title, year, mediaType, contentId].join(":");
+    const requestKey = [location.href, title, year, mediaType, runtimeMinutes, contentId].join(":");
     if (requestKey === activeRequest && document.getElementById(CHIP_ID)) return;
     activeRequest = requestKey;
 
     try {
       const result = await lookupRatings(
-        { title, year, mediaType, contentId },
+        { title, year, mediaType, runtimeMinutes, contentId },
         {
           onIMDbResult: (partialResults) => {
             if (requestKey === activeRequest) {

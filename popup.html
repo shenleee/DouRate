@@ -27,6 +27,11 @@
       .imdb-data.problem { border-color: #e3b5a3; background: #fff8f5; }
       .imdb-data p { margin-bottom: 8px; color: #4a4a4a; font-size: 12px; }
       .imdb-actions { display: flex; gap: 8px; margin: 8px 0; }
+      .imdb-schedule { margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #eadcae; }
+      .imdb-schedule p { margin-bottom: 6px; }
+      .imdb-schedule label { margin: 6px 0; font-size: 12px; }
+      .imdb-schedule-copy { display: block; margin: -2px 0 7px 22px; color: #5f6368; font-size: 11px; }
+      #imdb-refresh-days { width: 44px; margin: 0 3px; padding: 2px 4px; border: 1px solid #b8b8b8; border-radius: 4px; font: inherit; }
       button { border: 1px solid #b8b8b8; border-radius: 5px; padding: 5px 8px; background: #fff; color: #222; cursor: pointer; font: inherit; font-size: 12px; }
       button.primary { border-color: #0b57d0; background: #0b57d0; color: #fff; }
       button.danger { color: #b3261e; }
@@ -65,7 +70,13 @@
         <button id="imdb-download" class="primary" type="button">下载 IMDb 数据</button>
         <button id="imdb-delete" class="danger" type="button" hidden>删除本地数据</button>
       </div>
-      <p class="imdb-attribution">IMDb 数据需用户主动下载；不会自动下载、不会发送给开发者，也不会抓取 IMDb 网页。<br />Information courtesy of IMDb (https://www.imdb.com). Used with permission.</p>
+      <div class="imdb-schedule">
+        <p id="imdb-refresh-summary">正在读取自动更新设置…</p>
+        <label><input type="radio" name="imdb-refresh-mode" value="auto" />自动更新 IMDb 本地数据</label>
+        <span class="imdb-schedule-copy">首次手动下载后，每 <input id="imdb-refresh-days" type="number" min="1" max="90" step="1" value="7" aria-label="IMDb 自动更新间隔（天）" /> 天尝试更新一次。</span>
+        <label><input type="radio" name="imdb-refresh-mode" value="manual" />仅手动更新</label>
+      </div>
+      <p class="imdb-attribution">首次 IMDb 数据下载需用户主动触发；之后可选择自动更新。数据不会发送给开发者，也不会抓取 IMDb 网页。<br />Information courtesy of IMDb (https://www.imdb.com). Used with permission.</p>
       <a href="https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX" target="_blank" rel="noopener noreferrer">IMDb 数据使用条件 / IMDb data terms</a>
     </fieldset>
     <p id="status" role="status" aria-live="polite"></p>

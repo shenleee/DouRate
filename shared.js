@@ -22,8 +22,47 @@
   }
 
   function parseYear(value) {
-    const match = String(value || "").match(/\b((?:19|20)\d{2})\b/);
+    // Netflix sometimes concatenates metadata spans without spaces (for
+    // example, "20241h 53m"). A digit boundary is reliable here while a word
+    // boundary is not: the following duration unit is also a word character.
+    // Handle that specific year-plus-duration form before ordinary year text.
+    const text = String(value || "");
+    const concatenatedDurationMatch = text.match(
+      /(?:^|[^\d])((?:19|20)\d{2})(?=\d{1,2}\s*h\b)/i
+    );
+    const match = concatenatedDurationMatch || text.match(/(?:^|[^\d])((?:19|20)\d{2})(?!\d)/);
     return match ? match[1] : "";
+  }
+
+  function parseRuntimeMinutes(value) {
+    // Strip Netflix's concatenated year first: "20241h 53m" means 2024 and
+    // 1h 53m, not a 2,024-hour runtime.
+    const text = String(value || "").replace(
+      /(?:19|20)\d{2}(?=\d{1,2}\s*(?:h|hr|hrs|hours)\b)/i,
+      ""
+    );
+    const hoursAndMinutes = text.match(
+      /(\d{1,2})\s*(?:h|hr|hrs|hours)\s*(?:(\d{1,2})\s*(?:m|min|mins|minutes))?/i
+    );
+    if (hoursAndMinutes) {
+      return Number(hoursAndMinutes[1]) * 60 + Number(hoursAndMinutes[2] || 0);
+    }
+    const minutes = text.match(/\b(\d{1,3})\s*(?:m|min|mins|minutes)\b/i);
+    return minutes ? Number(minutes[1]) : 0;
+  }
+
+  function episodeMarkerIndex(value) {
+    const text = cleanTitle(value);
+    const spacedMarker = /(?:\s+|[|:·—-]\s*)(?:s\d{1,2}\s*[:.-]?\s*e\d{1,3}|season\s*\d+\s*episode\s*\d+|episode\s*\d+|e\d{1,3})(?=\s|[|:·—-]|$)/i.exec(text);
+    if (spacedMarker) return spacedMarker.index;
+    const compactChineseMarker = /(?:s\d{1,2}\s*[:.-]?\s*e\d{1,3}|e\d{1,3})(?=[\u4e00-\u9fff])/i.exec(text);
+    return compactChineseMarker ? compactChineseMarker.index : -1;
+  }
+
+  function seriesTitleFromEpisodeTitle(value) {
+    const text = cleanTitle(value);
+    const index = episodeMarkerIndex(text);
+    return index > 0 ? cleanTitle(text.slice(0, index)) : "";
   }
 
   function scoreCandidate(candidate, expectedTitle, expectedYear, expectedMediaType) {
@@ -95,13 +134,36 @@
     return { id, score: score.toFixed(1), votes };
   }
 
+  function validateIMDbRefreshPolicy(value) {
+    if (value?.mode === "manual") return { mode: "manual", intervalDays: null };
+    const intervalDays = Number(value?.intervalDays);
+    if (!Number.isInteger(intervalDays) || intervalDays < 1 || intervalDays > 90) return null;
+    return { mode: "auto", intervalDays };
+  }
+
+  function defaultIMDbRefreshPolicy() {
+    return { mode: "auto", intervalDays: 7 };
+  }
+
+  function nextIMDbRefreshAt(updatedAt, policy, lastAttemptAt = 0) {
+    if (policy?.mode !== "auto" || !Number.isFinite(Number(updatedAt))) return 0;
+    const baseline = Math.max(Number(updatedAt), Number(lastAttemptAt) || 0);
+    return baseline + Number(policy.intervalDays) * 24 * 60 * 60 * 1000;
+  }
+
   globalScope.NetflixDouban = {
     cleanTitle,
     normalizedTitle,
     parseYear,
+    parseRuntimeMinutes,
+    episodeMarkerIndex,
+    seriesTitleFromEpisodeTitle,
     pickSuggestion,
     extractDoubanRating,
     looksLikeDoubanChallenge,
-    parseIMDbRatingRow
+    parseIMDbRatingRow,
+    validateIMDbRefreshPolicy,
+    defaultIMDbRefreshPolicy,
+    nextIMDbRefreshAt
   };
 })(globalThis);

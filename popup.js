@@ -3,6 +3,7 @@
 const STORAGE_KEY = "douRateLoadingMode";
 const DIAGNOSTICS_KEY = "douRateDiagnostics";
 const IMDB_STATUS_KEY = "douRateIMDbStatus";
+const IMDB_REFRESH_POLICY_KEY = "douRateIMDbRefreshPolicy";
 const DEFAULT_MODE = "browse-visible";
 const validModes = new Set(["details", "browse-visible", "browse-full"]);
 const inputs = [...document.querySelectorAll("input[name='loading-mode']")];
@@ -14,6 +15,9 @@ const imdbPanel = document.getElementById("imdb-data-panel");
 const imdbStatus = document.getElementById("imdb-status");
 const imdbDownload = document.getElementById("imdb-download");
 const imdbDelete = document.getElementById("imdb-delete");
+const imdbRefreshSummary = document.getElementById("imdb-refresh-summary");
+const imdbRefreshDays = document.getElementById("imdb-refresh-days");
+const imdbRefreshModeInputs = [...document.querySelectorAll("input[name='imdb-refresh-mode']")];
 
 version.textContent = `版本 / Version ${chrome.runtime.getManifest().version}`;
 
@@ -43,6 +47,36 @@ function formatSize(value) {
 function formatCount(value) {
   const count = Number(value);
   return Number.isFinite(count) ? new Intl.NumberFormat("zh-CN").format(count) : "";
+}
+
+function selectedIMDbRefreshMode() {
+  return imdbRefreshModeInputs.find((input) => input.checked)?.value || "auto";
+}
+
+function selectIMDbRefreshPolicy(policy) {
+  const mode = policy?.mode === "manual" ? "manual" : "auto";
+  const input = imdbRefreshModeInputs.find((candidate) => candidate.value === mode);
+  if (input) input.checked = true;
+  imdbRefreshDays.value = Number.isInteger(Number(policy?.intervalDays))
+    ? String(policy.intervalDays)
+    : "7";
+  imdbRefreshDays.disabled = mode === "manual";
+}
+
+function refreshScheduleLabel(state) {
+  const policy = state?.policy?.mode === "manual"
+    ? { mode: "manual" }
+    : { mode: "auto", intervalDays: Number(state?.policy?.intervalDays) || 7 };
+  if (!state?.generation) {
+    return policy.mode === "manual"
+      ? "尚未下载 IMDb 数据；首次下载后仅会手动更新。"
+      : `尚未下载 IMDb 数据；首次手动下载后将每 ${policy.intervalDays} 天自动尝试更新。`;
+  }
+  if (policy.mode === "manual") return "IMDb 本地数据仅手动更新。";
+  const next = formatTime(state.nextRefreshAt);
+  return next
+    ? `自动更新已开启；下次尝试：${next}。`
+    : `自动更新已开启；每 ${policy.intervalDays} 天尝试一次。`;
 }
 
 function failureLabel(reason) {
@@ -121,6 +155,8 @@ function setIMDbControls({ downloading = false, ready = false } = {}) {
   imdbDownload.textContent = downloading ? "正在下载与建立索引…" : ready ? "更新 IMDb 数据" : "下载 IMDb 数据";
   imdbDelete.hidden = !ready || downloading;
   imdbDelete.disabled = downloading;
+  imdbRefreshDays.disabled = downloading || selectedIMDbRefreshMode() === "manual";
+  for (const input of imdbRefreshModeInputs) input.disabled = downloading;
 }
 
 async function renderIMDbStatus() {
@@ -132,7 +168,9 @@ async function renderIMDbStatus() {
   }
 
   const phase = state?.phase || "missing";
-  imdbPanel.classList.toggle("problem", phase === "error");
+  selectIMDbRefreshPolicy(state?.policy);
+  imdbRefreshSummary.textContent = refreshScheduleLabel(state);
+  imdbPanel.classList.toggle("problem", phase === "error" || Boolean(state?.error && state?.generation));
   if (phase === "downloading") {
     const indexed = formatCount(state.rowsIndexed);
     imdbStatus.textContent = indexed
@@ -155,6 +193,7 @@ async function renderIMDbStatus() {
     }
     const sourceSize = formatSize(state.sourceBytes);
     if (sourceSize) parts.push(`原始下载 ${sourceSize}`);
+    if (state.error) parts.push("最近更新失败，仍在使用上一份本地数据");
     const usage = await localStorageUsage();
     if (usage) parts.push(`浏览器本地存储约 ${usage}`);
     imdbStatus.textContent = `${parts.join(" · ")}。刷新流媒体页面后会自动显示可匹配的 IMDb 评分。`;
@@ -180,7 +219,7 @@ chrome.storage.local
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (changes[DIAGNOSTICS_KEY]) renderDiagnostics();
-  if (changes[IMDB_STATUS_KEY]) renderIMDbStatus();
+  if (changes[IMDB_STATUS_KEY] || changes[IMDB_REFRESH_POLICY_KEY]) renderIMDbStatus();
 });
 
 renderDiagnostics();
@@ -221,3 +260,25 @@ imdbDelete.addEventListener("click", async () => {
   }
   await renderIMDbStatus();
 });
+
+async function saveIMDbRefreshPolicy() {
+  const mode = selectedIMDbRefreshMode();
+  const intervalDays = Number(imdbRefreshDays.value);
+  if (mode === "auto" && (!Number.isInteger(intervalDays) || intervalDays < 1 || intervalDays > 90)) {
+    status.textContent = "自动更新间隔需为 1 至 90 天的整数。";
+    return;
+  }
+  try {
+    const result = await chrome.runtime.sendMessage({
+      type: "SET_IMDB_REFRESH_POLICY",
+      payload: mode === "manual" ? { mode } : { mode, intervalDays }
+    });
+    status.textContent = result?.ok ? "IMDb 自动更新设置已保存。" : "暂时无法保存 IMDb 自动更新设置。";
+  } catch {
+    status.textContent = "暂时无法保存 IMDb 自动更新设置。";
+  }
+  await renderIMDbStatus();
+}
+
+for (const input of imdbRefreshModeInputs) input.addEventListener("change", saveIMDbRefreshPolicy);
+imdbRefreshDays.addEventListener("change", saveIMDbRefreshPolicy);
