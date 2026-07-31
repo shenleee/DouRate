@@ -1,6 +1,6 @@
 # DouRate
 
-Chrome Manifest V3 · v0.3.4
+Chrome Manifest V3 · v0.3.5
 
 ## 中文
 
@@ -8,7 +8,7 @@ DouRate 在 Netflix、Prime Video 和 Disney+ 的标题详情页及支持的浏�
 
 ### 快速开始
 
-1. 使用随此版本提供的 `dourate-demo-0.3.4.zip`；发布后也可从 [最新 Release](https://github.com/shenleee/DouRate/releases/latest) 下载对应版本。
+1. 使用随此版本提供的 `dourate-demo-0.3.5.zip`；发布后也可从 [最新 Release](https://github.com/shenleee/DouRate/releases/latest) 下载对应版本。
 2. 解压 ZIP，在 Chrome 打开 `chrome://extensions`，开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的 DouRate 文件夹。
 4. 刷新 Netflix、Prime Video 或 Disney+ 页面。
@@ -30,7 +30,7 @@ DouRate shows available Douban and IMDb ratings on title pages and supported bro
 
 ### Quick start
 
-1. Use the `dourate-demo-0.3.4.zip` provided with this version; once published, the matching version can also be downloaded from the [latest Release](https://github.com/shenleee/DouRate/releases/latest).
+1. Use the `dourate-demo-0.3.5.zip` provided with this version; once published, the matching version can also be downloaded from the [latest Release](https://github.com/shenleee/DouRate/releases/latest).
 2. Extract it, open `chrome://extensions` in Chrome, and enable Developer mode.
 3. Select **Load unpacked**, then choose the DouRate folder that directly contains `manifest.json`.
 4. Refresh Netflix, Prime Video, or Disney+.

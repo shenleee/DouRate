@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DouRate",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Shows ratings from IMDb and Douban on Netflix, Prime Video and Disney+ title pages and browse cards.",
   "icons": {
     "16": "assets/icons/dourate-16.png",

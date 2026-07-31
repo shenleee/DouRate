@@ -1,8 +1,19 @@
 # DouRate Changelog / 版本更新记录
 
-`v0.3.4` is the current local release.
+`v0.3.5` is the current release.
 
-`v0.3.4` 为当前本地版本。
+`v0.3.5` 为当前发布版本。
+
+## v0.3.5 · 2026-07-31 · Current / 当前版本
+
+- **更完整的首次使用引导。** 新安装时会打开欢迎页，说明在当前浏览器登录豆瓣账号、按需要切换豆瓣加载模式以降低触发限流的风险，并提供 IMDb 官方数据集 URL 与按钮。点击链接或按钮都会直接下载、解压并建立 DouRate 的本机 IMDb 索引，而不是留下一个未处理的 `.gz` 文件；完成后刷新流媒体页面即可。
+  **Clearer first-use guidance.** A welcome page opens on new installs with guidance to sign in to Douban in the current browser, change Douban loading modes to reduce rate-limit risk, and download IMDb data via the official dataset URL or button. Either action downloads, decompresses, and indexes the data locally for DouRate rather than leaving an unprocessed `.gz` file; refresh a streaming page when it completes.
+- **可配置的 IMDb 自动更新。** 首次手动下载后，可选择每 1–90 天自动更新 IMDb 本地数据（默认 7 天），或设为仅手动更新。自动更新失败会继续保留上一份可用索引，并在后续周期重试。
+  **Configurable IMDb automatic updates.** After the first manual download, choose automatic local IMDb-data updates every 1–90 days (7 days by default), or manual updates only. A failed refresh keeps the previous usable index and retries in a later cycle.
+- **更可靠的双来源匹配。** IMDb 与豆瓣的保守匹配会结合 Netflix 选中卡片元数据、年份、类型、片长及剧集标题归一化；缺少可靠信息时保持问号，不按搜索顺序猜测。成功的 Netflix 详情页结果仍可按平台条目 ID 复用到浏览卡片。
+  **More reliable matching for both sources.** Conservative IMDb and Douban matching combines selected Netflix-card metadata, year, type, runtime, and series-title normalization. Uncertain matches remain question marks rather than search-order guesses. Successful Netflix detail-page results can still be reused by platform title ID on browse cards.
+- **发布与隐私文案更新。** 更新扩展产品简介、安装说明、隐私政策和欢迎页；新增的 `alarms` 权限只用于当前浏览器中用户选择的 IMDb 更新计划，不新增可访问网站或开发者后端。
+  **Listing and privacy copy updates.** Updates the extension summary, installation guide, privacy policy, and welcome page. The added `alarms` permission is used only for user-selected IMDb refresh scheduling in the current browser; it adds no website access or developer backend.
 
 ## v0.3.4 · 2026-07-30 · Current local / 当前本地版本
 
