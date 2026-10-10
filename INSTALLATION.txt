@@ -4,6 +4,10 @@ DouRate 安装与更新 / Installation & Update
 版本 / Version: 0.3.5
 安装包 / Package: dourate-demo-0.3.5.zip
 
+推荐：直接从 Chrome 应用商店安装，之后会自动更新。下面的步骤只适用于手动加载源码的开发者。
+Recommended: install from the Chrome Web Store, which keeps DouRate updated. The steps below are only for developers loading the source manually.
+https://chromewebstore.google.com/detail/bdjlmdohbjllclekdldokapgdaacelnn?utm_source=github&utm_medium=installation&utm_campaign=launch
+
 中文
 ----
 
